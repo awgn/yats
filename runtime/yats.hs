@@ -28,18 +28,17 @@ import Data.Char
 type Option = String
 type Source = String
 
+yatsVersion :: String
 yatsVersion = "runtime v0.1" 
-
 
 main :: IO ()
 main = do
     args <- getArgs
-    if (args == [])
+    if (getSource args == [])
     then     
         putStrLn "yats: source-test.cpp [source-test2.cpp...] [-comp_opt -comp_opt2... ]"
     else do
-        r <- runMultipleTests args
-        return ()
+        runMultipleTests args >> return ()
 
 runMultipleTests :: [String] -> IO [(Bool,Bool)]
 runMultipleTests xs = do                
@@ -98,10 +97,8 @@ beginWith (y:ys) (x:xs)
 getSource :: [String] -> [String]
 getSource = filter isCppSource
 
-
 getOption :: [String] -> [String]
 getOption = filter (not . isCppSource)
-
 
 isCppSource :: String -> Bool
 isCppSource name =  isSuffixOf ".cpp" name || isSuffixOf ".cc" name

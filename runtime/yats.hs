@@ -42,7 +42,7 @@ main = do
 
 runMultipleTests :: [String] -> IO [(Bool,Bool)]
 runMultipleTests xs = do                
-                    putStrLn $ "YAST " ++ yatsVersion
+                    putStrLn $ "YATS " ++ yatsVersion
                     let srcs = getSource xs
                     let opt = getOption xs
                     mapM (runYatsTests opt) srcs

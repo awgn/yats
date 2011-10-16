@@ -90,7 +90,7 @@ beginWith _ [] = False
 beginWith [] _ = False
 beginWith (y:ys) (x:xs)
     | isSpace x = beginWith (y:ys)  xs
-    | (x == y) && (isPrefixOf ys xs) = True
+    | (x == y) && (ys `isPrefixOf` xs) = True
     | otherwise = False
 
 
@@ -101,7 +101,7 @@ getOption :: [String] -> [String]
 getOption = filter (not . isCppSource)
 
 isCppSource :: String -> Bool
-isCppSource name =  isSuffixOf ".cpp" name || isSuffixOf ".cc" name
+isCppSource name =  ".cpp" `isSuffixOf` name || ".cc" `isSuffixOf` name
 
 
 

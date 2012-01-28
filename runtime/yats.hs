@@ -29,7 +29,7 @@ type Option = String
 type Source = String
 
 yatsVersion :: String
-yatsVersion = "runtime v0.1" 
+yatsVersion = "runtime v0.2" 
 
 main :: IO ()
 main = do
@@ -54,8 +54,7 @@ runYatsTests opt src = do
                         putStrLn $ "Running " ++ show(se) ++ " static checks on " ++ src ++ "."
                         r <- mapM (runStaticTest src opt) $ take se [0..]
                         r' <- runtimeTest src opt
-                        return ((r' == ExitSuccess), (and $ map (\x -> if x == ExitSuccess then True else False) r)  
-                                 )
+                        return (r' == ExitSuccess, and $ map (\x -> if x == ExitSuccess then True else False) r)
 
 runtimeTest:: Source -> [Option] -> IO ExitCode
 runtimeTest src opt = do 
@@ -71,28 +70,22 @@ runStaticTest src opt n = do
                                     ++ unwords(opt) ++ " -DYATS_STATIC_ERROR=" ++ show(n) ++ " 2> /dev/null"
                         -- putStrLn $ "   " ++ cmd 
                         r <- system cmd
-                        r'<- (if (r == ExitSuccess) 
+                        r'<- if (r == ExitSuccess) 
                                 then do
                                     r'' <- system ("./" ++ src ++ ".out")
                                     removeFile (src ++ ".out")
                                     return r''
                                 else 
-                                    return ExitSuccess)
+                                    return ExitSuccess
                         return r'
 
 countStaticErrors :: Source -> IO Int
 countStaticErrors file = do
                         src <- readFile file
-                        return $ length $ filter (beginWith "StaticError") (lines src)
+                        return $ length $ filter (beginWith "StaticError") $ lines src
 
 beginWith :: String -> String -> Bool
-beginWith _ [] = False
-beginWith [] _ = False
-beginWith (y:ys) (x:xs)
-    | isSpace x = beginWith (y:ys)  xs
-    | (x == y) && (ys `isPrefixOf` xs) = True
-    | otherwise = False
-
+beginWith ys xs = ys `isPrefixOf` dropWhile isSpace xs
 
 getSource :: [String] -> [String]
 getSource = filter isCppSource

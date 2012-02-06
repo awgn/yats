@@ -31,7 +31,7 @@
 #include <memory>
 #include <map>
 
-#ifdef __linux__
+#ifdef __GNUC__
 #include <cxxabi.h>
 #endif
 
@@ -231,8 +231,7 @@ using namespace std::placeholders;
 
 namespace yats 
 {
-
-#ifdef __linux__
+#ifdef __GNUC__
     static inline
     std::string
     cxa_demangle(const char *name)
@@ -243,7 +242,6 @@ namespace yats
             throw yats_error("__cxa_demangle");
         return std::string(ret.get());
     }
-
 #else
     static inline
     std::string
@@ -283,35 +281,30 @@ namespace yats
 
     static int run()
     {
-        auto it = context::instance().begin(),
-             it_e = context::instance().end();
-
-        unsigned int tot_task = 0;
-        for(auto i = it; i != it_e; ++i)
+        size_t tot_task = 0;
+        for(auto& task : context::instance())
         {
-            tot_task += i->second.task_list.size();
+            tot_task += task.second.task_list.size();
         }
 
         unsigned int n = 0;
-
         std::cout << "Running " << tot_task << " tests in " << context::instance().size() << " contexts." << std::endl;
 
         // iterate over contexts:        
-        for(; it != it_e; ++it) 
+        for(auto& c : context::instance()) 
         {
-            auto i = it->second.task_list.begin(),
-                 i_e = it->second.task_list.end();
-
             // run setup:
-            std::for_each(it->second.setup.begin(), it->second.setup.end(), 
+            std::for_each(std::begin(c.second.setup), 
+                          std::end(c.second.setup), 
                           std::mem_fn(&context::task::operator()));
 
-            for(; i != i_e; ++i)
+            // for each task... 
+            for(auto& t : c.second.task_list)
             {
                 try
                 {    
                     // run the test...
-                    i->first.operator()();
+                    t.first.operator()();
                     n++;  
                 }   
                 catch(yats_error &e)
@@ -320,12 +313,13 @@ namespace yats
                 }
                 catch(std::exception &e)
                 {
-                    std::cerr << "Context " << it->first << ": Test(" << i->second << ")\n -> Unexpected exception: '" << e.what() << "' error." << std::endl;
+                    std::cerr << "Context " << c.first << ": Test(" << t.second << ")\n -> Unexpected exception: '" << e.what() << "' error." << std::endl;
                 }
             }
             
             // run teardown:
-            std::for_each(it->second.teardown.begin(), it->second.teardown.end(), 
+            std::for_each( std::begin(c.second.teardown), 
+                           std::end(c.second.teardown), 
                           std::mem_fn(&context::task::operator()));
         }
 

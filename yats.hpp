@@ -373,16 +373,40 @@ namespace yats
         }
     };
 
-    template <typename T1, typename T2>
-    void assert_predicate(const T1 &_value, const predicate<T2> &pred, const char *_ctx, const char *_name, int line)
+
+    std::string pretty_value(bool v)
     {
-        if (!pred(_value)) {
+        std::ostringstream o;
+        o << std::boolalpha << v;
+        return o.str();
+    }
+    template <typename T>
+    typename std::enable_if<std::is_integral<T>::value, std::string>::type
+    pretty_value(T v)
+    {
+        std::ostringstream o;
+        o << v; if (v > 15) o << std::hex << "=0x" << v;
+        return o.str();
+    }
+    template <typename T>
+    typename std::enable_if<!std::is_integral<T>::value, std::string>::type
+    pretty_value(T v)
+    {
+        std::ostringstream o;
+        o << v;
+        return o.str();
+    }
+
+    template <typename T1, typename T2>
+    void assert_predicate(const T1 &value, const predicate<T2> &pred, const char *ctx, const char *name, int line)
+    {
+        if (!pred(value)) {
             std::ostringstream err;
-            err << std::boolalpha << YATS_ERROR(_ctx, _name) 
-                                << " -> predicate " << pred.descr; 
-            if (pred.value.second)
-                err << '(' << pred.value.first << ')'; 
-            err << " failed: got (" << _value <<  "). Error at line " << line;
+            err << std::boolalpha << YATS_ERROR(ctx, name) 
+                                << " -> predicate " << pred.descr_; 
+            if (pred.value_.second)
+                err << '(' << pretty_value(pred.value_.first) << ')'; 
+            err << " failed: got " << pretty_value(value) <<  ". Error at line " << line;
             throw yats_error(err.str());
         }
     }

@@ -375,19 +375,13 @@ namespace yats
         }
     };
 
-
-    std::string pretty_value(bool v)
-    {
-        std::ostringstream o;
-        o << std::boolalpha << v;
-        return o.str();
-    }
     template <typename T>
     typename std::enable_if<std::is_integral<T>::value, std::string>::type
     pretty_value(T v)
     {
         std::ostringstream o;
-        o << v; if (v > 15) o << std::hex << "=0x" << v;
+        o << std::boolalpha << v; 
+        if (v > 15) o << std::hex << "=0x" << v;
         return o.str();
     }
     template <typename T>

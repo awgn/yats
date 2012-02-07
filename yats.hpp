@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <type_traits>
 #include <functional>
 #include <algorithm>
 #include <stdexcept>
@@ -262,10 +263,10 @@ namespace yats
     {
         typedef std::function<void()> task;
 
-        std::string name;
-        std::vector<task> setup;
-        std::vector<task> teardown;
-        std::vector<std::pair<task,std::string>> task_list;
+        std::string name_;
+        std::vector<task> setup_;
+        std::vector<task> teardown_;
+        std::vector<std::pair<task,std::string>> task_list_;
         
         static std::map<std::string, context> &
         instance()
@@ -275,7 +276,7 @@ namespace yats
         }
         
         context(const std::string &n)
-        : name(n), setup(), teardown(), task_list()
+        : name_(n), setup_(), teardown_(), task_list_()
         {}
     };
 
@@ -284,7 +285,7 @@ namespace yats
         size_t tot_task = 0;
         for(auto& task : context::instance())
         {
-            tot_task += task.second.task_list.size();
+            tot_task += task.second.task_list_.size();
         }
 
         unsigned int n = 0;
@@ -294,12 +295,12 @@ namespace yats
         for(auto& c : context::instance()) 
         {
             // run setup:
-            std::for_each(std::begin(c.second.setup), 
-                          std::end(c.second.setup), 
+            std::for_each(std::begin(c.second.setup_), 
+                          std::end(c.second.setup_), 
                           std::mem_fn(&context::task::operator()));
 
             // for each task... 
-            for(auto& t : c.second.task_list)
+            for(auto& t : c.second.task_list_)
             {
                 try
                 {    
@@ -318,9 +319,9 @@ namespace yats
             }
             
             // run teardown:
-            std::for_each( std::begin(c.second.teardown), 
-                           std::end(c.second.teardown), 
-                          std::mem_fn(&context::task::operator()));
+            std::for_each( std::begin(c.second.teardown_), 
+                           std::end(c.second.teardown_), 
+                           std::mem_fn(&context::task::operator()));
         }
 
         std::cerr << tot_task - n << " tests failed." << std::endl;
@@ -331,20 +332,21 @@ namespace yats
     {
         enum class type { test, setup, teardown };
 
-        task_register(void(*f)(const char *), type t, const char * ctx, const char *name= "")
+        template <typename Fn>
+        task_register(Fn fun, type t, const char * ctx, const char *name= "")
         {
             auto i = context::instance().insert(std::make_pair(ctx, context(ctx)));
 
             switch(t)
             {
             case type::test:    
-                i.first->second.task_list.push_back(std::make_pair(std::bind(f, name), name));        
+                i.first->second.task_list_.push_back(std::make_pair(std::bind(fun, name), name));        
                 break;
             case type::setup:
-                i.first->second.setup.push_back(std::bind(f,name)); 
+                i.first->second.setup_.push_back(std::bind(fun,name)); 
                 break;
             case type::teardown:
-                i.first->second.teardown.push_back(std::bind(f,name)); 
+                i.first->second.teardown_.push_back(std::bind(fun,name)); 
                 break;
             default:
                 throw yats_error("task_register");
@@ -355,21 +357,21 @@ namespace yats
     template <typename T>
     struct predicate
     {
-        std::pair<typename std::remove_reference<T>::type,bool> value;
-        const char * descr;
-        std::function<bool(const T&)> fun;
+        std::pair<typename std::remove_reference<T>::type,bool> value_;
+        const char * descr_;
+        std::function<bool(const T&)> fun_;
 
-        predicate(const char * _descr, std::function<bool(const T&)> _fun, const T& _value)
-        : value(std::make_pair(_value, true)), descr(_descr), fun(_fun)
+        predicate(const char * descr, std::function<bool(const T&)> fun, const T& value)
+        : value_(std::make_pair(value, true)), descr_(descr), fun_(fun)
         {}
         
-        predicate(const char * _descr, std::function<bool(const T&)> _fun)
-        : value(), descr(_descr), fun(_fun)
+        predicate(const char * descr, std::function<bool(const T&)> fun)
+        : value_(), descr_(descr), fun_(fun)
         {}
         
-        bool operator()(const T &_value) const
+        bool operator()(const T &value) const
         {
-            return fun(_value);
+            return fun_(value);
         }
     };
 

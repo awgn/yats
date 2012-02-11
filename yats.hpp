@@ -354,44 +354,97 @@ namespace yats
         }
     };
 
-    template <typename T>
-    struct predicate
+    // For use in __is_convertible_simple.
+    struct __sfinae_types
     {
-        std::pair<typename std::remove_reference<T>::type,bool> value_;
-        const char * descr_;
-        std::function<bool(const T&)> fun_;
-
-        predicate(const char * descr, std::function<bool(const T&)> fun, const T& value)
-        : value_(std::make_pair(value, true)), descr_(descr), fun_(fun)
-        {}
-        
-        predicate(const char * descr, std::function<bool(const T&)> fun)
-        : value_(), descr_(descr), fun_(fun)
-        {}
-        
-        bool operator()(const T &value) const
-        {
-            return fun_(value);
-        }
+      typedef char __one;
+      typedef struct { char __arr[2]; } __two;
+    };
+    
+    template <typename T>
+    class has_insertion_operator : public __sfinae_types
+    {
+        template <typename C> static __one test(typename std::remove_reference<decltype(std::cout << std::declval<C>())>::type *);
+        template <typename C> static __two test(...);
+    public:    
+        enum { value = sizeof(test<T>(0)) == sizeof(__one) };
     };
 
     template <typename T>
     typename std::enable_if<std::is_integral<T>::value, std::string>::type
-    pretty_value(T v)
+    pretty_value(const T &v)
     {
         std::ostringstream o;
-        o << std::boolalpha << v; 
-        if (v > 15) o << std::hex << "=0x" << v;
+        o << std::boolalpha << '(' << v; 
+        if (v > 15) 
+            o << std::hex << "=0x" << v;
+        o << ')';
         return o.str();
     }
     template <typename T>
-    typename std::enable_if<!std::is_integral<T>::value, std::string>::type
-    pretty_value(T v)
+    typename std::enable_if<!std::is_integral<T>::value &&
+                            has_insertion_operator<T>::value, std::string>::type
+    pretty_value(const T &v)
     {
         std::ostringstream o;
-        o << v;
+        o << '(' << v << ')';
         return o.str();
     }
+    template <typename T>
+    typename std::enable_if<!std::is_integral<T>::value &&
+                            !has_insertion_operator<T>::value, std::string>::type
+    pretty_value(const T &v)
+    {
+        return "()";
+    }
+
+    ///////////////////// generic predicate ///////////////////////////
+
+    template <typename T>
+    struct predicate
+    {
+        predicate(const char * name, std::function<bool(const T&)> fun, const T& arg)
+        : name_(name)
+        , fun_(fun)
+        , arg_(std::make_pair(arg, true))
+        {}
+        
+        predicate(const char * name, std::function<bool(const T&)> fun)
+        : name_(name)
+        , fun_(fun)
+        , arg_(arg)
+        {}
+        
+        bool 
+        operator()(const T &value) const
+        {
+            return fun_(value);
+        }
+
+        bool
+        has_arg() const
+        {
+            return arg_.second;
+        }
+
+        const T &
+        arg() const
+        {
+            return arg_.first;
+        }
+
+        const
+        std::string &
+        name() const
+        {
+            return name_;
+        }
+
+    private:
+        std::pair<typename std::remove_reference<T>::type, bool> arg_;
+        std::string name_;
+        std::function<bool(const T&)> fun_;
+    };
 
     template <typename T1, typename T2>
     void assert_predicate(const T1 &value, const predicate<T2> &pred, const char *ctx, const char *name, int line)
@@ -399,9 +452,10 @@ namespace yats
         if (!pred(value)) {
             std::ostringstream err;
             err << std::boolalpha << YATS_ERROR(ctx, name) 
-                                << " -> predicate " << pred.descr_; 
-            if (pred.value_.second)
-                err << '(' << pretty_value(pred.value_.first) << ')'; 
+                                << " -> predicate " << pred.name(); 
+            
+            if (pred.has_arg())
+                err << pretty_value(pred.arg()); 
             err << " failed: got " << pretty_value(value) <<  ". Error at line " << line;
             throw yats_error(err.str());
         }

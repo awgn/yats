@@ -412,7 +412,7 @@ namespace yats
         predicate(const char * name, std::function<bool(const T&)> fun)
         : name_(name)
         , fun_(fun)
-        , arg_(arg)
+        , arg_()
         {}
         
         bool 
@@ -441,9 +441,9 @@ namespace yats
         }
 
     private:
-        std::pair<typename std::remove_reference<T>::type, bool> arg_;
         std::string name_;
         std::function<bool(const T&)> fun_;
+        std::pair<typename std::remove_reference<T>::type, bool> arg_;
     };
 
     template <typename T1, typename T2>

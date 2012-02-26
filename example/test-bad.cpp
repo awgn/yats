@@ -90,7 +90,8 @@ Context(bad_context)
     }
     Test(test_9)
     {
-        AssertThrow(0);
+        int n = 0;
+        AssertThrow(n++);
     }
  
     Test(test_10)

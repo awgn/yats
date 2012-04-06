@@ -238,7 +238,7 @@ namespace yats
     cxa_demangle(const char *name)
     {
         int status;
-        std::shared_ptr<char> ret(abi::__cxa_demangle(name,0,0, &status), ::free);
+        std::unique_ptr<char, void (*)(void *)> ret(abi::__cxa_demangle(name,0,0, &status), ::free);
         if (status < 0) 
             throw yats_error("__cxa_demangle");
         return std::string(ret.get());
@@ -393,7 +393,7 @@ namespace yats
     template <typename T>
     typename std::enable_if<!std::is_integral<T>::value &&
                             !has_insertion_operator<T>::value, std::string>::type
-    pretty_value(const T &v)
+    pretty_value(const T &)
     {
         return "()";
     }

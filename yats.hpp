@@ -23,6 +23,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <string>
+#include <cstring>
 #include <type_traits>
 #include <functional>
 #include <algorithm>
@@ -171,7 +173,7 @@ catch(...) \
         static_error() \
         { expr; \
             std::cerr << "Static error failure: Test(" # expr ") is not an error. Reason -> " msg << std::endl; \
-            exit (EXIT_FAILURE);\
+            _Exit(EXIT_FAILURE);\
         } \
     } maybe_error_ = static_error();
 
@@ -280,8 +282,40 @@ namespace yats
         {}
     };
 
-    static int run()
+    static void usage(const char *name)
     {
+        std::cout << "Yats usage: " << name << " [options]" << std::endl;
+        std::cout << "Options:\n";
+        std::cout << "  -e          On error exit immediatly.\n";
+        std::cout << "  -h          Print this help.\n";
+        _Exit(EXIT_SUCCESS);
+    }
+
+    static int run(int argc = 0, char *argv[] = nullptr)
+    {
+        bool exit_immediatly = false, err = false;
+        bool verbose = false;
+
+        for(auto arg = argv; arg != argv + argc; ++arg)
+        {
+            if (strcmp(*arg, "-h") == 0 ||
+                strcmp(*arg, "--help") == 0) {
+                usage(argv[0]);
+            }
+
+            if (strcmp(*arg, "-e") == 0 ||
+                strcmp(*arg, "--exit-immediatly") == 0) {
+                exit_immediatly = true;
+                continue;
+            }
+            
+            if (strcmp(*arg, "-v") == 0 ||
+                strcmp(*arg, "--verbose") == 0) {
+                verbose = true;
+                continue;
+            }
+        }
+
         size_t tot_task = 0;
         for(auto& task : context::instance())
         {
@@ -294,6 +328,9 @@ namespace yats
         // iterate over contexts:        
         for(auto& c : context::instance()) 
         {
+            if (verbose)
+                std::cout << "Context " << c.first << ":\n";
+
             // run setup:
             std::for_each(std::begin(c.second.setup_), 
                           std::end(c.second.setup_), 
@@ -302,6 +339,9 @@ namespace yats
             // for each task... 
             for(auto& t : c.second.task_list_)
             {
+                if (verbose)
+                    std::cout << "+ running Test(" << t.second << ")...\n";
+                
                 try
                 {    
                     // run the test...
@@ -310,12 +350,17 @@ namespace yats
                 }   
                 catch(yats_error &e)
                 {
+                    err = true;
                     std::cerr << e.what() << std::endl;
                 }
                 catch(std::exception &e)
                 {
+                    err = true;
                     std::cerr << "Context " << c.first << ": Test(" << t.second << ")\n -> Unexpected exception: '" << e.what() << "' error." << std::endl;
                 }
+                
+                if (err && exit_immediatly)
+                    _Exit(1);
             }
             
             // run teardown:

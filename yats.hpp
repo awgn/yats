@@ -302,7 +302,7 @@ namespace yats
         std::set<std::string> cxt;
         std::set<std::string> test;
 
-        for(auto arg = argv + 1; arg != argv + argc; ++arg)
+        for(auto arg = argv + 1; argv && (arg != argv + argc); ++arg)
         {
             if (strcmp(*arg, "-h") == 0 ||
                 strcmp(*arg, "--help") == 0) {

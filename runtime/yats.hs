@@ -22,7 +22,6 @@ module Main where
 import System(getArgs)
 import System.Process
 import System.Exit
-import System.Directory
 
 import Data.List
 import Data.Char
@@ -32,6 +31,7 @@ type Source = String
 
 yatsVersion :: String
 yatsVersion = "runtime v0.3" 
+
 
 main :: IO ()
 main = do
@@ -64,23 +64,14 @@ runYatsTests opt src = do
 runtimeTest:: Source -> [Option] -> IO ExitCode
 runtimeTest src opt = do 
                         let cmd = (compilerCmd src) ++ (unwords opt) ++ " 2> /dev/null"
-                        r <- system cmd >> system ("./" ++ src ++ ".out")
-                        removeFile (src ++ ".out")
-                        return r
+                        system cmd >> system ("./" ++ src ++ ".out")
 
 
 runStaticTest :: Source -> [Option] -> Int -> IO ExitCode
 runStaticTest src opt n = do
                         let cmd = (compilerCmd src) ++ (unwords opt) ++ " -DYATS_STATIC_ERROR=" ++ (show n) ++ " 2> /dev/null"
-                        r <- system cmd
-                        r'<- if (r == ExitSuccess) 
-                                then do
-                                    r'' <- system ("./" ++ src ++ ".out")
-                                    removeFile (src ++ ".out")
-                                    return r''
-                                else 
-                                    return ExitSuccess
-                        return r'
+                        r <- system cmd 
+                        if r == ExitSuccess then (system $ "./" ++ src ++ ".out") else return ExitSuccess
 
 
 countStaticErrors :: Source -> IO Int

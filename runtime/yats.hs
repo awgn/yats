@@ -17,6 +17,8 @@
 --
 -- YATS: Yet Another Test Suite: Runtime
 
+module Main where
+
 import System(getArgs)
 import System.Process
 import System.Exit
@@ -29,7 +31,7 @@ type Option = String
 type Source = String
 
 yatsVersion :: String
-yatsVersion = "runtime v0.2" 
+yatsVersion = "runtime v0.3" 
 
 main :: IO ()
 main = do
@@ -40,11 +42,12 @@ main = do
     else do
         runMultipleTests args >> return ()
 
+
 runMultipleTests :: [String] -> IO [(Bool,Bool)]
 runMultipleTests xs = do                
                     putStrLn $ "YATS " ++ yatsVersion
                     let srcs = getSource xs
-                    let opt = getOption xs
+                    let opt  = getOption xs
                     mapM (runYatsTests opt) srcs
 
 
@@ -52,23 +55,23 @@ runYatsTests :: [Option] -> Source -> IO (Bool,Bool)
 runYatsTests opt src = do
                         se <- countStaticErrors src
                         putStrLn $ "Running " ++ show(se) ++ " static checks on " ++ src ++ "."
-                        r <- mapM (runStaticTest src opt) $ take se [0..]
-                        r' <- runtimeTest src opt
-                        return (r' == ExitSuccess, and $ map (\x -> if x == ExitSuccess then True else False) r)
+                        r  <- (mapM (runStaticTest src opt) $ take se [0..]) 
+                                >>= (\v -> return $ and $ map (\x -> if x == ExitSuccess then True else False) v)
+                        r' <- runtimeTest src opt >>= (\x -> return $ x == ExitSuccess)
+                        return (r', r)
+
 
 runtimeTest:: Source -> [Option] -> IO ExitCode
 runtimeTest src opt = do 
-                        let cmd = "/usr/bin/g++ -std=c++0x -O0 -I /usr/local/include -w " ++ src ++ " -o " ++ src ++ ".out " 
-                                    ++ unwords(opt) ++ " 2> /dev/null"
+                        let cmd = (compilerCmd src) ++ (unwords opt) ++ " 2> /dev/null"
                         r <- system cmd >> system ("./" ++ src ++ ".out")
                         removeFile (src ++ ".out")
                         return r
 
+
 runStaticTest :: Source -> [Option] -> Int -> IO ExitCode
 runStaticTest src opt n = do
-                        let cmd = "/usr/bin/g++ -std=c++0x -O0 -I /usr/local/include -w " ++ src ++ " -o " ++ src ++ ".out " 
-                                    ++ unwords(opt) ++ " -DYATS_STATIC_ERROR=" ++ show(n) ++ " 2> /dev/null"
-                        -- putStrLn $ "   " ++ cmd 
+                        let cmd = (compilerCmd src) ++ (unwords opt) ++ " -DYATS_STATIC_ERROR=" ++ (show n) ++ " 2> /dev/null"
                         r <- system cmd
                         r'<- if (r == ExitSuccess) 
                                 then do
@@ -79,19 +82,28 @@ runStaticTest src opt n = do
                                     return ExitSuccess
                         return r'
 
+
 countStaticErrors :: Source -> IO Int
 countStaticErrors file = do
                         src <- readFile file
                         return $ length $ filter (beginWith "StaticError") $ lines src
 
+
+compilerCmd :: String -> String
+compilerCmd src = "/usr/bin/g++ -std=c++0x -O0 -I /usr/local/include -w " ++ src ++ " -o " ++ src ++ ".out "
+
+
 beginWith :: String -> String -> Bool
 beginWith ys xs = ys `isPrefixOf` dropWhile isSpace xs
+
 
 getSource :: [String] -> [String]
 getSource = filter isCppSource
 
+
 getOption :: [String] -> [String]
 getOption = filter (not . isCppSource)
+
 
 isCppSource :: String -> Bool
 isCppSource name =  ".cpp" `isSuffixOf` name || ".cc" `isSuffixOf` name

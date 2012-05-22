@@ -25,9 +25,8 @@ Context(bad_context)
     // StaticErrors that fail:
     //
     
-    StaticError(NonCopyable x = NonCopyable(),       "Non copyable class!");
-    StaticError(NonCopyable x; NonCopyable y; x = y, "Non copyable class!");
-
+    StaticError(NonCopyable x = NonCopyable(),       "Non copy-constructible class");
+    StaticError(NonCopyable x; NonCopyable y; x = y, "Non assignable class");
 
     Setup(init)
     {

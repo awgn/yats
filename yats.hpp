@@ -231,10 +231,11 @@ catch(...) \
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-using namespace std::placeholders;
 
 namespace yats 
 {
+    using namespace std::placeholders;
+
 #ifdef __GNUC__
     static inline
     std::string

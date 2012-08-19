@@ -423,8 +423,6 @@ namespace yats
             case type::teardown:
                 i.first->second.teardown_.push_back(std::bind(fun,name)); 
                 break;
-            default:
-                throw yats_error("task_register");
             }
         }
     };

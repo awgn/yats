@@ -81,37 +81,31 @@ struct yats_error : public std::runtime_error
     {}
 };
 
-#define YATS_ASSERT_1(value)            yats::assert_predicate(value, is_true(),_context_name, _name, __LINE__)
-#define YATS_ASSERT_2(value,pred)       yats::assert_predicate(value, pred,     _context_name, _name, __LINE__)
+#define YATS_HEADER(ctx,test,file,line) file, ':', line, ": *** ", ctx, "::", test, ":\n"
+#define YATS_ASSERT_1(value)            yats::assert_predicate(value, is_true(),_context_name, _name, __FILE__, __LINE__)
+#define YATS_ASSERT_2(value,pred)       yats::assert_predicate(value, pred,     _context_name, _name, __FILE__, __LINE__)
 
-#define YATS_ASSERT_THROW_1(value)      YATS_ASSERT_THROW_ANY (value, __LINE__)
-#define YATS_ASSERT_THROW_2(value,obj)  YATS_ASSERT_THROW_TYPE(value, obj, __LINE__)
+#define YATS_ASSERT_THROW_1(value)      YATS_ASSERT_THROW_ANY (value, __FILE__, __LINE__)
+#define YATS_ASSERT_THROW_2(value,obj)  YATS_ASSERT_THROW_TYPE(value, obj, __FILE__, __LINE__)
 
-#define YATS_ERROR(context, name) "Context " << context << ": Test(" << name << ")\n"  
-
-#define YATS_ASSERT_NOTHROW(exp,line) \
+                                                                                                                 
+#define YATS_ASSERT_NOTHROW(exp,file,line) \
 try \
 { \
     exp; \
 } \
 catch(std::exception &e) \
 {           \
-    std::ostringstream err; \
-    err << std::boolalpha << YATS_ERROR(_context_name, _name) \
-                        << " -> exception not expected. Got " \
-                        << yats::type_name(e) << "(\"" << e.what() << "\")" \
-                        << " error at line " << line; \
-    throw yats_error(err.str()); \
+    throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
+                                "    -> exception not expected. Got ", yats::type_name(e), "(\"", e.what(), "\"")); \
 } \
 catch(...) \
 {           \
-    std::ostringstream err; \
-    err << std::boolalpha << YATS_ERROR(_context_name, _name) \
-                        << " -> exception not expected: got unknown exception. Error at line " << line; \
-    throw yats_error(err.str()); \
+    throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
+                                "    -> exception not expected: got unknown exception.")); \
 } 
 
-#define YATS_ASSERT_THROW_ANY(exp,line) \
+#define YATS_ASSERT_THROW_ANY(exp,file, line) \
 { \
     bool thrown = false; \
     try \
@@ -124,14 +118,12 @@ catch(...) \
     }           \
     if (!thrown) \
     {  \
-        std::ostringstream e; \
-        e << std::boolalpha << YATS_ERROR(_context_name, _name) \
-                            << " -> exception expected. Error at line " << line; \
-        throw yats_error(e.str()); \
+        throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
+                                    "    -> exception expected!")); \
     }  \
 }
 
-#define YATS_ASSERT_THROW_TYPE(exp, obj, line) \
+#define YATS_ASSERT_THROW_TYPE(exp, obj, file,line) \
 { \
     bool thrown = false; \
     try \
@@ -141,29 +133,21 @@ catch(...) \
     catch(decltype(obj) &e) \
     { \
         if (std::string(e.what()).compare(obj.what())) { \
-            std::ostringstream err; \
-            err << std::boolalpha << YATS_ERROR(_context_name, _name) \
-                            << " -> " << yats::type_name(obj)  \
-                            <<  " caught with reason '" << e.what() << "' != '" << obj.what()  << "'. Error at line " << line; \
-            throw yats_error(err.str()); \
+            throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
+                                        "    -> ", yats::type_name(obj), " caught with reason \'", e.what(), "\' != '", obj.what(), "'" )); \
         } \
         thrown = true; \
     } \
     catch(...) \
     { \
-        std::ostringstream err; \
-        err << std::boolalpha << YATS_ERROR(_context_name, _name) \
-                        << " -> " << yats::type_name(obj)  \
-                        <<  " expected. Got unknown exception. Error at line " << line; \
-        throw yats_error(err.str()); \
+        throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
+                                    "    -> ", yats::type_name(obj), " expected. Got unknown exception.")); \
     }  \
     \
     if (!thrown) \
     {  \
-        std::ostringstream err; \
-        err << std::boolalpha << YATS_ERROR(_context_name, _name) \
-                            << " -> exception " << yats::type_name(obj) << " expected. Error at line " << line; \
-        throw yats_error(err.str()); \
+        throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
+                                    "    -> exception ", yats::type_name(obj), " expected.")); \
     }  \
 }
 
@@ -173,7 +157,7 @@ catch(...) \
     struct static_error {\
         static_error() \
         { expr; \
-            std::cerr << "Static error failure: Test(" # expr "): " msg " is falsifiable." << std::endl; \
+            std::cerr << "Static error failure: test " # expr ": " msg " is falsifiable." << std::endl; \
             _Exit(EXIT_FAILURE);\
         } \
     } maybe_error_ = static_error();
@@ -296,6 +280,30 @@ namespace yats
         _Exit(EXIT_SUCCESS);
     }
 
+    /// format - error
+    
+    template <typename CharT, typename Traits, typename T>
+    void __make_error(std::basic_ostream<CharT,Traits> &out, T &&arg)
+    {
+        out << std::forward<T>(arg);
+    }
+    template <typename CharT, typename Traits, typename T, typename ...Ti>
+    void __make_error(std::basic_ostream<CharT, Traits> &out, T &&arg, Ti&&... args)
+    {
+        out << arg;
+        __make_error(out, std::forward<Ti>(args)...);
+    }
+
+    template <typename T, typename ...Ti>
+    std::string
+    make_error(T &&arg, Ti&&... args)
+    {
+        std::ostringstream out; 
+        out << std::boolalpha << arg;
+        __make_error(out, std::forward<Ti>(args)...);
+        return out.str();
+    }
+
     static int run(int argc = 0, char *argv[] = nullptr)
     {
         bool exit_immediatly = false, err = false;
@@ -355,7 +363,7 @@ namespace yats
                 continue;
 
             if (verbose)
-                std::cout << "Context " << c.first << ":\n";
+                std::cout << "context " << c.first << ":\n";
 
             // run setup:
             std::for_each(std::begin(c.second.setup_), 
@@ -370,7 +378,7 @@ namespace yats
                     continue;
 
                 if (verbose)
-                    std::cout << "+ running Test(" << t.second << ")...\n";
+                    std::cout << "+ running test " << t.second << "...\n";
                 
                 run++;
                 try
@@ -387,7 +395,8 @@ namespace yats
                 catch(std::exception &e)
                 {
                     err = true;
-                    std::cerr << "Context " << c.first << ": Test(" << t.second << ")\n -> Unexpected exception: '" << e.what() << "' error." << std::endl;
+                    __make_error(std::cerr, "test ", c.first, "::" , t.second , ":\n",
+                        "    -> Unexpected exception: '", e.what(), "' error.\n");
                 }
                 
                 if (err && exit_immediatly)
@@ -521,17 +530,11 @@ namespace yats
     };
 
     template <typename T1, typename T2>
-    void assert_predicate(const T1 &value, const predicate<T2> &pred, const char *ctx, const char *name, int line)
+    void assert_predicate(const T1 &value, const predicate<T2> &pred, const char *ctx, const char *name, const char *file, int line)
     {
         if (!pred(value)) {
-            std::ostringstream err;
-            err << std::boolalpha << YATS_ERROR(ctx, name) 
-                                << " -> predicate " << pred.name(); 
-            
-            if (pred.has_arg())
-                err << pretty_value(pred.arg()); 
-            err << " failed: got " << pretty_value(value) <<  ". Error at line " << line;
-            throw yats_error(err.str());
+            throw yats_error(make_error(YATS_HEADER(ctx, name, file, line), 
+                                        "    -> predicate ", pred.name(), (pred.has_arg() ? pretty_value(pred.arg()) : " "), " failed: got ", pretty_value(value)));
         }
     }
 
@@ -587,7 +590,7 @@ namespace yats
 
 #define Assert(...)            XPASTE(YATS_ASSERT_       ,PP_NARG(__VA_ARGS__)) ( __VA_ARGS__) 
 #define AssertThrow(...)       XPASTE(YATS_ASSERT_THROW_ ,PP_NARG(__VA_ARGS__)) ( __VA_ARGS__) 
-#define AssertNothrow(value)   YATS_ASSERT_NOTHROW(value, __LINE__)
+#define AssertNothrow(value)   YATS_ASSERT_NOTHROW(value, __FILE__, __LINE__)
 
 #define StaticError(expr,msg)  XPASTE(YATS_STATIC_ERROR_, __COUNTER__) (expr,msg)
 

@@ -19,9 +19,10 @@
 
 module Main where
 
-import System(getArgs)
+import System.Environment(getArgs)
 import System.Process
 import System.Exit
+import Control.Monad
 
 import Data.List
 import Data.Char
@@ -37,47 +38,43 @@ main :: IO ()
 main = do
     args <- getArgs
     if (getSource args == [])
-    then     
-        putStrLn "yats: source-test.cpp [source-test2.cpp...] [-comp_opt -comp_opt2... ]"
-    else do
-        runMultipleTests args >> return ()
+    then putStrLn "yats: source-test.cpp [source-test2.cpp...] [-comp_opt -comp_opt2... ]"
+    else runMultipleTests args >> return ()
 
 
 runMultipleTests :: [String] -> IO [(Bool,Bool)]
-runMultipleTests xs = do                
-                    putStrLn $ "YATS " ++ yatsVersion
-                    let srcs = getSource xs
-                    let opt  = getOption xs
-                    mapM (runYatsTests opt) srcs
+runMultipleTests xs = 
+    do putStrLn $ "YATS " ++ yatsVersion
+       let srcs = getSource xs
+       let opt  = getOption xs
+       mapM (runYatsTests opt) srcs
 
 
 runYatsTests :: [Option] -> Source -> IO (Bool,Bool)
-runYatsTests opt src = do
-                        se <- countStaticErrors src
-                        putStrLn $ "Running " ++ show(se) ++ " static checks on " ++ src ++ "."
-                        r  <- (mapM (runStaticTest src opt) $ take se [0..]) 
-                                >>= (\v -> return $ and $ map (\x -> if x == ExitSuccess then True else False) v)
-                        r' <- runtimeTest src opt >>= (\x -> return $ x == ExitSuccess)
-                        return (r', r)
+runYatsTests opt src = 
+    do se <- countStaticErrors src
+       putStrLn $ "Running " ++ show(se) ++ " static checks on " ++ src ++ "."
+       liftM2 (,) ((mapM (runStaticTest src opt) $ take se [0..]) >>= 
+                    (\v -> return $ and $ map (\x -> if x == ExitSuccess then True else False) v)) 
+                  (liftM (==ExitSuccess) (runtimeTest src opt))
 
 
 runtimeTest:: Source -> [Option] -> IO ExitCode
-runtimeTest src opt = do 
-                        let cmd = (compilerCmd src) ++ (unwords opt) ++ " 2> /dev/null"
-                        system cmd >> system ("./" ++ src ++ ".out")
-
+runtimeTest src opt =  system cmd >> system ("./" ++ src ++ ".out") 
+                        where cmd = (compilerCmd src) ++ (unwords opt) ++ " 2> /dev/null"
+       
 
 runStaticTest :: Source -> [Option] -> Int -> IO ExitCode
-runStaticTest src opt n = do
-                        let cmd = (compilerCmd src) ++ (unwords opt) ++ " -DYATS_STATIC_ERROR=" ++ (show n) ++ " 2> /dev/null"
-                        r <- system cmd 
-                        if r == ExitSuccess then (system $ "./" ++ src ++ ".out") else return ExitSuccess
+runStaticTest src opt n = 
+    do let cmd = (compilerCmd src) ++ (unwords opt) ++ " -DYATS_STATIC_ERROR=" ++ (show n) ++ " 2> /dev/null"
+       r <- system cmd 
+       if r == ExitSuccess then (system $ "./" ++ src ++ ".out") else return ExitSuccess
 
 
 countStaticErrors :: Source -> IO Int
-countStaticErrors file = do
-                        src <- readFile file
-                        return $ length $ filter (beginWith "StaticError") $ lines src
+countStaticErrors file = 
+    do src <- readFile file
+       return $ length $ filter (beginWith "StaticError") $ lines src
 
 
 compilerCmd :: String -> String

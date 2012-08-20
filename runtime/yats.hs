@@ -22,6 +22,8 @@ module Main where
 import System.Environment(getArgs)
 import System.Process
 import System.Exit
+import System.Posix.Files
+
 import Control.Monad
 
 import Data.List
@@ -30,8 +32,11 @@ import Data.Char
 type Option = String
 type Source = String
 
+data Compiler = Gcc | Clang 
+                    deriving (Show, Eq, Ord)
+
 yatsVersion :: String
-yatsVersion = "runtime v0.3" 
+yatsVersion = "runtime v0.4" 
 
 
 main :: IO ()
@@ -60,13 +65,14 @@ runYatsTests opt src =
 
 
 runtimeTest:: Source -> [Option] -> IO ExitCode
-runtimeTest src opt =  system cmd >> system ("./" ++ src ++ ".out") 
-                        where cmd = (compilerCmd src) ++ (unwords opt) ++ " 2> /dev/null"
-       
+runtimeTest src opt =  do cxx <- getCompiler
+                          let cmd = (compilerCmd cxx src) ++ (unwords opt) ++ " 2> /dev/null"
+                          system cmd >> system ("./" ++ src ++ ".out")
 
 runStaticTest :: Source -> [Option] -> Int -> IO ExitCode
 runStaticTest src opt n = 
-    do let cmd = (compilerCmd src) ++ (unwords opt) ++ " -DYATS_STATIC_ERROR=" ++ (show n) ++ " 2> /dev/null"
+    do cxx <- getCompiler
+       let cmd = (compilerCmd cxx src) ++ (unwords opt) ++ " -DYATS_STATIC_ERROR=" ++ (show n) ++ " 2> /dev/null"
        r <- system cmd 
        if r == ExitSuccess then (system $ "./" ++ src ++ ".out") else return ExitSuccess
 
@@ -77,9 +83,24 @@ countStaticErrors file =
        return $ length $ filter (beginWith "StaticError") $ lines src
 
 
-compilerCmd :: String -> String
-compilerCmd src = "/usr/bin/g++ -std=c++0x -O0 -I /usr/local/include -w " ++ src ++ " -o " ++ src ++ ".out "
+getCompiler :: IO Compiler
+getCompiler =  fileExist "/usr/bin/clang++" >>= (\b -> if b then return Clang else return Gcc)
 
+getCompilerExe :: Compiler -> String
+getCompilerExe Gcc   = "/usr/bin/g++"
+getCompilerExe Clang = "/usr/bin/clang++"
+
+getCompilerOpt :: Compiler -> [String]
+getCompilerOpt Gcc   =  [ "-std=c++0x", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" ]
+getCompilerOpt Clang =  [ "-std=c++0x", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" , "-Wno-unneeded-internal-declaration"]
+
+-- getCompilerOpt Clang =  [ "-std=c++0x", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-include-pch", precomp_header, "-Wextra", "-Wno-unused-parameter" , "-Wno-unneeded-internal-declaration"]
+                          -- where precomp_header = "/usr/local/include/yats.hpp.pch"
+
+
+compilerCmd :: Compiler -> String -> String
+compilerCmd cxx src = (getCompilerExe cxx) ++ " " ++ (unwords $ getCompilerOpt cxx) ++ " " ++ src ++ " -o " ++ src ++ ".out "
+                                    
 
 beginWith :: String -> String -> Bool
 beginWith ys xs = ys `isPrefixOf` dropWhile isSpace xs

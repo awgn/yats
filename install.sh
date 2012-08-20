@@ -33,15 +33,13 @@ echo -e "${ASS} Copying YATS header..."
 
 /bin/cp yats.hpp /usr/local/include/
 
-if [ -x /usr/bin/g++ ]; then
-    echo -e "${ASS} Precompiling YATS header for g++..."
-    /usr/bin/g++ yats.hpp -std=c++0x -O0 -o /usr/local/include/yats.hpp.gch
-fi
-
-
-if [ -x /usr/bin/clang++ ]; then
-    echo -e "${ASS} Precompiling headers for clang++..."
-    /usr/bin/clang++ yats.hpp -std=c++0x -O0 -D_GLIBCXX_DEBUG -Wall -Wextra -x c++-header -o /usr/local/include/yats.hpp.pch
-fi
+# if [ -x /usr/bin/g++ ]; then
+#     echo -e "${ASS} Precompiling YATS header for g++..."
+#     /usr/bin/g++ yats.hpp -std=c++0x -O0 -o /usr/local/include/yats.hpp.gch
+# fi
+# if [ -x /usr/bin/clang++ ]; then
+#     echo -e "${ASS} Precompiling headers for clang++..."
+#     /usr/bin/clang++ yats.hpp -std=c++0x -O0 -D_GLIBCXX_DEBUG -Wall -Wextra -x c++-header -o /usr/local/include/yats.hpp.pch
+# fi
 
 echo -e "${ASS} done."

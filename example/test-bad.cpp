@@ -108,14 +108,9 @@ Context(bad_context)
 
     ////////////////// generic predicate
 
-    bool is_even(int n)
-    {
-        return !(n&1);
-    }
-
     Test(test_12)
     {
-        Assert(11, generic_predicate<int>("is_even", is_even));
+        Assert(11, make_predicate<int>("is_even", [](int n) -> bool { return !(n&1); }));
     }
     
     ////////////////// unexpected exception

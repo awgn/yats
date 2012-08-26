@@ -66,7 +66,9 @@ extern std::mt19937 RandomEngine;
 
 #define UniformRandom(name, a, b, arg) \
     void uniform_ ## name(const char *, decltype(a)); \
-    yats::task_register unihook_ ## name(yats::extended_tag(), (RandomTask< std::uniform_int_distribution<decltype(a)> >(uniform_ ## name, (std::uniform_int_distribution<>(a,b)))), \
+    yats::task_register unihook_ ## name(yats::extended_tag(), \
+                                         (RandomTask< std::uniform_int_distribution<decltype(a)> >\
+                                         (uniform_ ## name, (std::uniform_int_distribution<>(a,b)))), \
                                          task_register::type::random, _context_name, #name); \
     void uniform_ ## name(const char *_test_name, decltype(a) arg)
 
@@ -421,14 +423,17 @@ namespace yats
             if (verbose)
                 std::cout << "context " << c.first << ":\n";
 
-            // run setup:
-            
+            // run setup:               
+            //
+                                         
             for(auto & t : c.second.setup_)
             {
                 t(0);   
             }
 
             // for each task... 
+            //
+            
             for(auto& t : c.second.task_list_)
             {
                 if (!run_test.empty() &&
@@ -441,7 +446,8 @@ namespace yats
                 run++;
                 try
                 {    
-                    // run the test...
+                    // run the test here
+                    //
                     t.first.operator()(repeat_run);
                     ok++;  
                 }   
@@ -462,7 +468,7 @@ namespace yats
             }
             
             // run teardown:
-
+            //
             for(auto & t : c.second.teardown_)
             {
                 t(0);    
@@ -517,7 +523,7 @@ namespace yats
         } 
     };
 
-    // For use in __is_convertible_simple.
+    // For use in has_insertion_operator
     
     struct __sfinae_types
     {
@@ -533,7 +539,8 @@ namespace yats
     public:    
         enum { value = sizeof(test<T>(0)) == sizeof(__one) };
     };
-
+                                       
+    
     template <typename T>
     typename std::enable_if<std::is_integral<T>::value, std::string>::type
     pretty_value(const T &v)
@@ -608,6 +615,17 @@ namespace yats
         std::function<bool(const T&)> fun_;
         std::pair<typename std::remove_reference<T>::type, bool> arg_;
     };
+
+    /// make predicate: bool(Tp)
+
+    template <typename Tp, typename Fn>
+    inline predicate<Tp>
+    make_predicate(const char *name, Fn fun)
+    {
+        return predicate<Tp>(name, std::function<bool(const Tp &)>(fun));
+    } 
+
+    /// assert functions 
 
     template <typename T1, typename T2>
     void assert_predicate(const T1 &value, const predicate<T2> &pred, const char *ctx, const char *name, const char *file, int line)
@@ -689,15 +707,6 @@ namespace yats
                             std::function<bool(bool)>(
                                 std::bind(std::equal_to<bool>(), _1, false)), false); 
     }
-
-    /// generic predicate: bool(Tp)
-
-    template <typename Tp, typename Fn>
-    inline predicate<Tp>
-    generic_predicate(const char *name, Fn fun)
-    {
-        return predicate<Tp>(name, std::function<bool(const Tp &)>(fun));
-    } 
 }
 
 #endif /* _YATS_HPP_ */

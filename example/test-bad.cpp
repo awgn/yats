@@ -12,6 +12,9 @@
 using namespace yats;
 
 
+std::mt19937 RandomEngine;
+
+
 Context(bad_context)
 {
     // Example: a class which is copyable
@@ -121,6 +124,13 @@ Context(bad_context)
     {
         throw std::runtime_error("unexpected exception");
     }   
+
+    /////////////////  uniform distribution: dice 1 - 6
+    
+    UniformRandom(test_14, 1, 6, x)
+    {
+        Assert( x , is_less(0));
+    }
 
 }
 

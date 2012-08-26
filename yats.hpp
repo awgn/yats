@@ -34,10 +34,14 @@
 #include <memory>
 #include <map>
 #include <set>
+#include <random>
 
 #ifdef __GNUC__
 #include <cxxabi.h>
 #endif
+
+
+extern std::mt19937 RandomEngine;
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,15 +57,32 @@
     namespace ctx { static const char _context_name[] = #ctx; } \
     namespace ctx
  
+
 #define Test(name) \
     void test_ ## name(const char *); \
     yats::task_register hook_ ## name(test_ ## name, task_register::type::test, _context_name, #name); \
     void test_ ## name(const char *_test_name)
 
+
+#define UniformRandom(name, a, b, arg) \
+    void uniform_ ## name(const char *, decltype(a)); \
+    yats::task_register unihook_ ## name(yats::extended_tag(), (RandomTask< std::uniform_int_distribution<decltype(a)> >(uniform_ ## name, (std::uniform_int_distribution<>(a,b)))), \
+                                         task_register::type::random, _context_name, #name); \
+    void uniform_ ## name(const char *_test_name, decltype(a) arg)
+
+
+#define Random(name, dist, arg) \
+    void uniform_ ## name(const char *, typename decltype(dist)::result_type); \
+    yats::task_register unihook_ ## name(yats::extended_tag(), (RandomTask<decltype(dist)>(uniform_ ## name, dist)), \
+                                         task_register::type::random, _context_name, #name); \
+    void uniform_ ## name(const char *_test_name, typename decltype(dist)::result_type arg)
+
+
 #define Setup(name) \
     void setup_ ## name(const char *); \
     yats::task_register fixture_ ## name(setup_ ## name, task_register::type::setup, _context_name); \
     void setup_ ## name(const char *)
+
 
 #define Teardown(name) \
     void teardown_ ## name(const char *); \
@@ -237,15 +258,40 @@ namespace yats
         return "any";
     }
   
+    template <typename Dist>
+    struct RandomTask
+    {
+        typedef void (*function_t)(const char *name, typename Dist::result_type value);
+        typedef void result_type;
 
+        RandomTask(function_t fun, Dist dist)
+        : fun_(fun)
+        , dist_(dist)
+        { }
+
+        void operator()(const char *name, int run) 
+        {
+            for(int i = 0; i < run; i++)
+            {
+                fun_(name, dist_(RandomEngine));        
+            }
+        }
+
+    private:
+
+        function_t fun_;
+        Dist dist_;
+    };
+    
     struct context
     {
-        typedef std::function<void()> task;
+        typedef std::function<void(int)> Task;
 
         std::string name_;
-        std::vector<task> setup_;
-        std::vector<task> teardown_;
-        std::vector<std::pair<task,std::string>> task_list_;
+        std::vector<Task> setup_;
+        std::vector<Task> teardown_;
+
+        std::vector<std::pair<Task,std::string>> task_list_;
         
         static std::map<std::string, context> &
         instance()
@@ -275,6 +321,7 @@ namespace yats
         std::cout << "  -e, --exit-immediatly   On error exit.\n";
         std::cout << "  -c, --context context   Run tests from the given context.\n";
         std::cout << "  -v, --verbose           Verbose mode.\n";
+        std::cout << "  -r, --run int           Number of run per Random test (1000 default).\n";
         std::cout << "  -h, --help              Print this help.\n";
 
         _Exit(EXIT_SUCCESS);
@@ -309,6 +356,7 @@ namespace yats
     static int run(int argc = 0, char *argv[] = nullptr)
     {
         bool exit_immediatly = false, err = false, verbose = false;
+        int  repeat_run = 1000;
 
         std::set<std::string> run_cxt, run_test;
 
@@ -339,6 +387,14 @@ namespace yats
                 continue;
             }
 
+            if (strcmp(*arg, "-r") == 0 ||
+                strcmp(*arg, "--run") == 0) {
+                if (++arg == (argv+argc))
+                    throw std::runtime_error("YATS: context missing");
+                repeat_run = atoi(*arg);
+                continue;
+            }
+
             run_test.insert(*arg);
         }
 
@@ -366,9 +422,11 @@ namespace yats
                 std::cout << "context " << c.first << ":\n";
 
             // run setup:
-            std::for_each(std::begin(c.second.setup_), 
-                          std::end(c.second.setup_), 
-                          std::mem_fn(&context::task::operator()));
+            
+            for(auto & t : c.second.setup_)
+            {
+                t(0);   
+            }
 
             // for each task... 
             for(auto& t : c.second.task_list_)
@@ -384,7 +442,7 @@ namespace yats
                 try
                 {    
                     // run the test...
-                    t.first.operator()();
+                    t.first.operator()(repeat_run);
                     ok++;  
                 }   
                 catch(yats_error &e)
@@ -404,19 +462,23 @@ namespace yats
             }
             
             // run teardown:
-            std::for_each( std::begin(c.second.teardown_), 
-                           std::end(c.second.teardown_), 
-                           std::mem_fn(&context::task::operator()));
+
+            for(auto & t : c.second.teardown_)
+            {
+                t(0);    
+            }
         }
 
         std::cerr << (run-ok) << " out of " << run  << " tests failed." << std::endl;
         return ok == run ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 
+
+    struct extended_tag { };
     
     struct task_register
     {
-        enum class type { test, setup, teardown };
+        enum class type { test, random, setup, teardown };
 
         template <typename Fn>
         task_register(Fn fun, type t, const char * ctx, const char *name= "")
@@ -434,11 +496,29 @@ namespace yats
             case type::teardown:
                 i.first->second.teardown_.push_back(std::bind(fun,name)); 
                 break;
+            case type::random:
+                throw std::logic_error("yats");
             }
         }
+
+        template <typename Fn>
+        task_register(extended_tag, Fn fun, type t, const char * ctx, const char *name= "")
+        {
+            auto i = context::instance().insert(std::make_pair(std::string(ctx), context(ctx)));
+
+            switch(t)
+            {
+            case type::random:
+                i.first->second.task_list_.push_back(std::make_pair(std::bind(fun, name, _1), name));        
+                break;
+            default:
+                throw std::logic_error("yats");
+            }
+        } 
     };
 
     // For use in __is_convertible_simple.
+    
     struct __sfinae_types
     {
       typedef char __one;

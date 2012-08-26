@@ -11,6 +11,10 @@
 #include <yats.hpp>
 
 using namespace yats;
+ 
+
+std::mt19937 RandomEngine;
+
 
 Context(good_context)
 {
@@ -87,7 +91,17 @@ Context(good_context)
     Test(test_10)
     {
         AssertThrow( throw std::logic_error("ok"), std::logic_error("ok"));
+    }    
+    
+    /////////////////  uniform distribution: dice 1 - 6
+    
+    UniformRandom(test_14, 1, 6, x)
+    {
+        Assert( x , is_greater_equal(1));
+        Assert( x , is_less_equal(6));
     }
+
+
 }
 
 

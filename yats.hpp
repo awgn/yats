@@ -210,15 +210,11 @@ namespace yats
     static inline std::string
     cxa_demangle(const char *name)
     {
-#ifdef __GNUC__
         int status;
         std::unique_ptr<char, void (*)(void *)> ret(abi::__cxa_demangle(name,0,0, &status), ::free);
         if (status < 0) 
             throw yats_error("__cxa_demangle");
         return std::string(ret.get());
-#else
-        return std::string(name);
-#endif
     }
 
     
@@ -259,8 +255,17 @@ namespace yats
         }
         
         context(const std::string &n)
-        : name_(n), setup_(), teardown_(), task_list_()
+        : name_(n)
+        , setup_() 
+        , teardown_()
+        , task_list_()
         {}
+
+        context(context &&) = default;
+        context& operator=(context &&) = default;
+        
+        context(context const &) = delete;
+        context& operator=(context const &) = delete;
     };
 
     static void usage(const char *name)
@@ -289,13 +294,13 @@ namespace yats
         format(out, std::forward<Ti>(args)...);
     }
 
-    template <typename T, typename ...Ti>
+    template <typename ...Ts>
     std::string
-    make_error(T &&arg, Ti&&... args)
+    make_string(Ts&&... args)
     {
         std::ostringstream out; 
-        out << std::boolalpha << arg;
-        format(out, std::forward<Ti>(args)...);
+        out << std::boolalpha;
+        format(out, std::forward<Ts>(args)...);
         return out.str();
     }
 
@@ -303,11 +308,9 @@ namespace yats
    
     static int run(int argc = 0, char *argv[] = nullptr)
     {
-        bool exit_immediatly = false, err = false;
-        bool verbose = false;
+        bool exit_immediatly = false, err = false, verbose = false;
 
-        std::set<std::string> cxt;
-        std::set<std::string> test;
+        std::set<std::string> run_cxt, run_test;
 
         for(auto arg = argv + 1; argv && (arg != argv + argc); ++arg)
         {
@@ -332,18 +335,18 @@ namespace yats
                 strcmp(*arg, "--context") == 0) {
                 if (++arg == (argv+argc))
                     throw std::runtime_error("YATS: context missing");
-                cxt.insert(*arg);
+                run_cxt.insert(*arg);
                 continue;
             }
 
-            test.insert(*arg);
+            run_test.insert(*arg);
         }
 
         size_t tot_task = 0;
-        for(auto& task : context::instance())
+        for(auto & task : context::instance())
         {
-            if (!cxt.empty() &&
-                cxt.find(task.first) == cxt.end())
+            if (!run_cxt.empty() &&
+                run_cxt.find(task.first) == run_cxt.end())
                 continue;
             tot_task += task.second.task_list_.size();
         }
@@ -353,10 +356,10 @@ namespace yats
 
         // iterate over contexts: 
         //
-        for(auto& c : context::instance()) 
+        for(auto & c : context::instance()) 
         {
-            if (!cxt.empty() &&
-                cxt.find(c.first) == cxt.end())
+            if (!run_cxt.empty() &&
+                run_cxt.find(c.first) == run_cxt.end())
                 continue;
 
             if (verbose)
@@ -370,8 +373,8 @@ namespace yats
             // for each task... 
             for(auto& t : c.second.task_list_)
             {
-                if (!test.empty() &&
-                    test.find(t.second) == test.end())
+                if (!run_test.empty() &&
+                    run_test.find(t.second) == run_test.end())
                     continue;
 
                 if (verbose)
@@ -418,7 +421,7 @@ namespace yats
         template <typename Fn>
         task_register(Fn fun, type t, const char * ctx, const char *name= "")
         {
-            auto i = context::instance().insert(std::make_pair(ctx, context(ctx)));
+            auto i = context::instance().insert(std::make_pair(std::string(ctx), context(ctx)));
 
             switch(t)
             {
@@ -530,8 +533,8 @@ namespace yats
     void assert_predicate(const T1 &value, const predicate<T2> &pred, const char *ctx, const char *name, const char *file, int line)
     {
         if (!pred(value)) {
-            throw yats_error(make_error(YATS_HEADER(ctx, name, file, line), 
-                                        "    -> predicate ", pred.name(), (pred.has_arg() ? pretty_value(pred.arg()) : " "), " failed: got ", pretty_value(value)));
+            throw yats_error(make_string(YATS_HEADER(ctx, name, file, line), 
+                                        "    -> predicate ", pred.name(), ' ', (pred.has_arg() ? pretty_value(pred.arg()) : ""), " failed: got ", pretty_value(value)));
         }
     }
 
@@ -545,27 +548,27 @@ namespace yats
         catch(T &e)
         {
             if (std::string(e.what()).compare(obj.what())) 
-                throw yats_error(make_error(YATS_HEADER(context, test, file, line), 
+                throw yats_error(make_string(YATS_HEADER(context, test, file, line), 
                                             "    -> ", yats::type_name(obj), " exception caught with reason \"", e.what(), "\" != \"", obj.what(), "\"!"));
             return;
         }
         catch(std::exception &e)
         {
             if (!std::is_same<T,anything>::value)
-                throw yats_error(make_error(YATS_HEADER(context, test, file, line), 
+                throw yats_error(make_string(YATS_HEADER(context, test, file, line), 
                                             "    -> ", yats::type_name(obj), " exception expected. Got ", yats::type_name(e), " (\"", e.what(), "\")!"));
             return;
         }
         catch(...)
         {
             if (!std::is_same<T,anything>::value)
-                throw yats_error(make_error(YATS_HEADER(context, test, file, line), 
+                throw yats_error(make_string(YATS_HEADER(context, test, file, line), 
                                             "    -> ", yats::type_name(obj), " exception expected: got unknown exception!")); 
             return;
         }
 
         if (!std::is_same<T, nothing>::value)
-            throw yats_error(make_error(YATS_HEADER(context, test, file, line), 
+            throw yats_error(make_string(YATS_HEADER(context, test, file, line), 
                                         "    -> ", yats::type_name(obj), " exception expected!"));  
     }
 
@@ -616,6 +619,5 @@ namespace yats
         return predicate<Tp>(name, std::function<bool(const Tp &)>(fun));
     } 
 }
-
 
 #endif /* _YATS_HPP_ */

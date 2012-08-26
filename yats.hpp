@@ -39,6 +39,39 @@
 #include <cxxabi.h>
 #endif
 
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+#define Assert(...)                     XPASTE(YATS_ASSERT_       ,PP_NARG(__VA_ARGS__)) ( __VA_ARGS__) 
+#define AssertThrow(...)                XPASTE(YATS_ASSERT_THROW_ ,PP_NARG(__VA_ARGS__)) ( __VA_ARGS__) 
+#define AssertNothrow(value)            YATS_ASSERT_NOTHROW(value)
+#define StaticError(expr,msg)           XPASTE(YATS_STATIC_ERROR_, __COUNTER__) (expr,msg)
+
+
+#define Context(ctx) \
+    namespace ctx { static const char _context_name[] = #ctx; } \
+    namespace ctx
+ 
+#define Test(name) \
+    void test_ ## name(const char *); \
+    yats::task_register hook_ ## name(test_ ## name, task_register::type::test, _context_name, #name); \
+    void test_ ## name(const char *_test_name)
+
+#define Setup(name) \
+    void setup_ ## name(const char *); \
+    yats::task_register fixture_ ## name(setup_ ## name, task_register::type::setup, _context_name); \
+    void setup_ ## name(const char *)
+
+#define Teardown(name) \
+    void teardown_ ## name(const char *); \
+    yats::task_register fixture_ ## name(teardown_ ## name, task_register::type::teardown, _context_name); \
+    void teardown_ ## name(const char *)
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 /* the so-called __VA_NARG__ (PP_NARG) macro from the thread at 
    http://groups.google.com/group/comp.std.c/browse_frm/thread/77ee8c8f92e4a3fb 
  */
@@ -71,87 +104,14 @@
 #define XPASTE(a,b)     PASTE(a,b)
 #endif
 
-struct yats_error : public std::runtime_error
-{
-    explicit yats_error(const std::string &msg)
-    : std::runtime_error(msg)
-    {}
-    
-    virtual ~yats_error() throw() 
-    {}
-};
-
 #define YATS_HEADER(ctx,test,file,line) file, ':', line, ": *** ", ctx, "::", test, ":\n"
-#define YATS_ASSERT_1(value)            yats::assert_predicate(value, is_true(),_context_name, _name, __FILE__, __LINE__)
-#define YATS_ASSERT_2(value,pred)       yats::assert_predicate(value, pred,     _context_name, _name, __FILE__, __LINE__)
 
-#define YATS_ASSERT_THROW_1(value)      YATS_ASSERT_THROW_ANY (value, __FILE__, __LINE__)
-#define YATS_ASSERT_THROW_2(value,obj)  YATS_ASSERT_THROW_TYPE(value, obj, __FILE__, __LINE__)
+#define YATS_ASSERT_1(value)            yats::assert_predicate(value, is_true(),  _context_name, _test_name, __FILE__, __LINE__)
+#define YATS_ASSERT_2(value,pred)       yats::assert_predicate(value, pred,       _context_name, _test_name, __FILE__, __LINE__)
+#define YATS_ASSERT_NOTHROW(expr)       yats::assert_throw(nothing(), [&]{expr;}, _context_name, _test_name, __FILE__, __LINE__)
+#define YATS_ASSERT_THROW_1(expr)       yats::assert_throw(anything(),[&]{expr;}, _context_name, _test_name, __FILE__, __LINE__)
+#define YATS_ASSERT_THROW_2(expr,obj)   yats::assert_throw(obj,       [&]{expr;}, _context_name, _test_name, __FILE__, __LINE__)
 
-                                                                                                                 
-#define YATS_ASSERT_NOTHROW(exp,file,line) \
-try \
-{ \
-    exp; \
-} \
-catch(std::exception &e) \
-{           \
-    throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
-                                "    -> exception not expected. Got ", yats::type_name(e), "(\"", e.what(), "\"")); \
-} \
-catch(...) \
-{           \
-    throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
-                                "    -> exception not expected: got unknown exception.")); \
-} 
-
-#define YATS_ASSERT_THROW_ANY(exp,file, line) \
-{ \
-    bool thrown = false; \
-    try \
-    { \
-        exp; \
-    } \
-    catch(...) \
-    {                \
-        thrown = true; \
-    }           \
-    if (!thrown) \
-    {  \
-        throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
-                                    "    -> exception expected!")); \
-    }  \
-}
-
-#define YATS_ASSERT_THROW_TYPE(exp, obj, file,line) \
-{ \
-    bool thrown = false; \
-    try \
-    { \
-        exp; \
-    } \
-    catch(decltype(obj) &e) \
-    { \
-        if (std::string(e.what()).compare(obj.what())) { \
-            throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
-                                        "    -> ", yats::type_name(obj), " caught with reason \'", e.what(), "\' != '", obj.what(), "'" )); \
-        } \
-        thrown = true; \
-    } \
-    catch(...) \
-    { \
-        throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
-                                    "    -> ", yats::type_name(obj), " expected. Got unknown exception.")); \
-    }  \
-    \
-    if (!thrown) \
-    {  \
-        throw yats_error(make_error(YATS_HEADER(_context_name, _name, file,line), \
-                                    "    -> exception ", yats::type_name(obj), " expected.")); \
-    }  \
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define YATS_STATIC_ERROR_CLASS(expr, msg) \
     struct static_error {\
@@ -161,6 +121,7 @@ catch(...) \
             _Exit(EXIT_FAILURE);\
         } \
     } maybe_error_ = static_error();
+
 
 #if defined(YATS_STATIC_ERROR) && YATS_STATIC_ERROR == 0
 #define YATS_STATIC_ERROR_0(expr,msg) YATS_STATIC_ERROR_CLASS(expr,msg);
@@ -213,33 +174,54 @@ catch(...) \
 #define YATS_STATIC_ERROR_9(expr,msg) 
 #endif
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+struct yats_error : public std::runtime_error
+{
+    explicit yats_error(const std::string &msg)
+    : std::runtime_error(msg)
+    {}
+    
+    virtual ~yats_error() throw() 
+    {}
+};
+
+struct nothing
+{
+    static constexpr const char * what() {
+        return "nothing";
+    }
+};
+          
+struct anything
+{
+    static constexpr const char * what() {
+        return "anything";
+    }
+};
 
 
 namespace yats 
 {
     using namespace std::placeholders;
 
-#ifdef __GNUC__
-    static inline
-    std::string
+    static inline std::string
     cxa_demangle(const char *name)
     {
+#ifdef __GNUC__
         int status;
         std::unique_ptr<char, void (*)(void *)> ret(abi::__cxa_demangle(name,0,0, &status), ::free);
         if (status < 0) 
             throw yats_error("__cxa_demangle");
         return std::string(ret.get());
-    }
 #else
-    static inline
-    std::string
-    cxa_demangle(const char *name)
-    {
         return std::string(name);
-    }
 #endif
+    }
 
+    
     template <typename Tp>
     std::string
     type_name(const Tp &t)
@@ -247,6 +229,19 @@ namespace yats
         return cxa_demangle(typeid(t).name());
     }
     
+    std::string
+    type_name(nothing)
+    {
+        return "no";
+    }
+    
+    std::string
+    type_name(anything)
+    {
+        return "any";
+    }
+  
+
     struct context
     {
         typedef std::function<void()> task;
@@ -283,15 +278,15 @@ namespace yats
     /// format - error
     
     template <typename CharT, typename Traits, typename T>
-    void __make_error(std::basic_ostream<CharT,Traits> &out, T &&arg)
+    void format(std::basic_ostream<CharT,Traits> &out, T &&arg)
     {
         out << std::forward<T>(arg);
     }
     template <typename CharT, typename Traits, typename T, typename ...Ti>
-    void __make_error(std::basic_ostream<CharT, Traits> &out, T &&arg, Ti&&... args)
+    void format(std::basic_ostream<CharT, Traits> &out, T &&arg, Ti&&... args)
     {
         out << arg;
-        __make_error(out, std::forward<Ti>(args)...);
+        format(out, std::forward<Ti>(args)...);
     }
 
     template <typename T, typename ...Ti>
@@ -300,10 +295,12 @@ namespace yats
     {
         std::ostringstream out; 
         out << std::boolalpha << arg;
-        __make_error(out, std::forward<Ti>(args)...);
+        format(out, std::forward<Ti>(args)...);
         return out.str();
     }
 
+    /// yats::run!
+   
     static int run(int argc = 0, char *argv[] = nullptr)
     {
         bool exit_immediatly = false, err = false;
@@ -395,8 +392,8 @@ namespace yats
                 catch(std::exception &e)
                 {
                     err = true;
-                    __make_error(std::cerr, "test ", c.first, "::" , t.second , ":\n",
-                        "    -> Unexpected exception: '", e.what(), "' error.\n");
+                    format(std::cerr, "test ", c.first, "::" , t.second , ":\n",
+                           "    -> Unexpected exception: '", e.what(), "' error.\n");
                 }
                 
                 if (err && exit_immediatly)
@@ -413,6 +410,7 @@ namespace yats
         return ok == run ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 
+    
     struct task_register
     {
         enum class type { test, setup, teardown };
@@ -458,10 +456,9 @@ namespace yats
     pretty_value(const T &v)
     {
         std::ostringstream o;
-        o << std::boolalpha << '(' << v; 
+        o << std::boolalpha << v; 
         if (v > 15) 
-            o << std::hex << "=0x" << v;
-        o << ')';
+            o << '(' << std::hex << "0x" << v << std::dec << ')';
         return o.str();
     }
     template <typename T>
@@ -470,7 +467,7 @@ namespace yats
     pretty_value(const T &v)
     {
         std::ostringstream o;
-        o << '(' << v << ')';
+        o << v;
         return o.str();
     }
     template <typename T>
@@ -538,6 +535,40 @@ namespace yats
         }
     }
 
+    template <typename T, typename E>
+    void assert_throw(T const &obj, E expr, const char *context, const char *test, const char *file, int line)
+    {
+        try
+        {
+            expr();
+        }
+        catch(T &e)
+        {
+            if (std::string(e.what()).compare(obj.what())) 
+                throw yats_error(make_error(YATS_HEADER(context, test, file, line), 
+                                            "    -> ", yats::type_name(obj), " exception caught with reason \"", e.what(), "\" != \"", obj.what(), "\"!"));
+            return;
+        }
+        catch(std::exception &e)
+        {
+            if (!std::is_same<T,anything>::value)
+                throw yats_error(make_error(YATS_HEADER(context, test, file, line), 
+                                            "    -> ", yats::type_name(obj), " exception expected. Got ", yats::type_name(e), " (\"", e.what(), "\")!"));
+            return;
+        }
+        catch(...)
+        {
+            if (!std::is_same<T,anything>::value)
+                throw yats_error(make_error(YATS_HEADER(context, test, file, line), 
+                                            "    -> ", yats::type_name(obj), " exception expected: got unknown exception!")); 
+            return;
+        }
+
+        if (!std::is_same<T, nothing>::value)
+            throw yats_error(make_error(YATS_HEADER(context, test, file, line), 
+                                        "    -> ", yats::type_name(obj), " exception expected!"));  
+    }
+
     /// standard predicates...
 
 #define YATS_FUNCTIONAL(_name_) \
@@ -585,33 +616,6 @@ namespace yats
         return predicate<Tp>(name, std::function<bool(const Tp &)>(fun));
     } 
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#define Assert(...)            XPASTE(YATS_ASSERT_       ,PP_NARG(__VA_ARGS__)) ( __VA_ARGS__) 
-#define AssertThrow(...)       XPASTE(YATS_ASSERT_THROW_ ,PP_NARG(__VA_ARGS__)) ( __VA_ARGS__) 
-#define AssertNothrow(value)   YATS_ASSERT_NOTHROW(value, __FILE__, __LINE__)
-
-#define StaticError(expr,msg)  XPASTE(YATS_STATIC_ERROR_, __COUNTER__) (expr,msg)
-
-#define Context(ctx) \
-namespace ctx { static const char _context_name[] = #ctx; } \
-namespace ctx
- 
-#define Test(name) \
-void test_ ## name(const char *); \
-yats::task_register hook_ ## name(test_ ## name, task_register::type::test, _context_name, #name); \
-void test_ ## name(const char *_name)
-
-#define Setup(name) \
-void setup_ ## name(const char *); \
-yats::task_register fixture_ ## name(setup_ ## name, task_register::type::setup, _context_name); \
-void setup_ ## name(const char *)
-
-#define Teardown(name) \
-void teardown_ ## name(const char *); \
-yats::task_register fixture_ ## name(teardown_ ## name, task_register::type::teardown, _context_name); \
-void teardown_ ## name(const char *)
 
 
 #endif /* _YATS_HPP_ */

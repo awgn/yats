@@ -127,6 +127,10 @@ Context(bad_context)
         Assert( x , is_less(0));
     }
 
+    Random(test_15, (std::uniform_int_distribution<int>(1,6)), x)
+    {
+        Assert( x , is_greater(6));
+    }
 }
 
 int

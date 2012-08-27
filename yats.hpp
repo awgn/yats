@@ -41,9 +41,6 @@
 #endif
 
 
-extern std::mt19937 RandomEngine;
-
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -67,15 +64,15 @@ extern std::mt19937 RandomEngine;
 #define UniformRandom(name, a, b, arg) \
     void uniform_ ## name(const char *, decltype(a)); \
     yats::task_register unihook_ ## name(yats::extended_tag(), \
-                                         (RandomTask< std::uniform_int_distribution<decltype(a)> >\
-                                         (uniform_ ## name, (std::uniform_int_distribution<>(a,b)))), \
+                                         (RandomTask< std::uniform_int_distribution<decltype(a)>, decltype(RandomEngine)>\
+                                         (uniform_ ## name, (std::uniform_int_distribution<>(a,b)), RandomEngine)), \
                                          task_register::type::random, _context_name, #name); \
     void uniform_ ## name(const char *_test_name, decltype(a) arg)
 
 
 #define Random(name, dist, arg) \
     void uniform_ ## name(const char *, typename decltype(dist)::result_type); \
-    yats::task_register unihook_ ## name(yats::extended_tag(), (RandomTask<decltype(dist)>(uniform_ ## name, dist)), \
+    yats::task_register unihook_ ## name(yats::extended_tag(), (RandomTask<decltype(dist), decltype(RandomEngine)>(uniform_ ## name, dist, RandomEngine)), \
                                          task_register::type::random, _context_name, #name); \
     void uniform_ ## name(const char *_test_name, typename decltype(dist)::result_type arg)
 
@@ -260,22 +257,23 @@ namespace yats
         return "any";
     }
   
-    template <typename Dist>
+    template <typename Dist, typename Engine>
     struct RandomTask
     {
         typedef void (*function_t)(const char *name, typename Dist::result_type value);
         typedef void result_type;
 
-        RandomTask(function_t fun, Dist dist)
+        RandomTask(function_t fun, Dist dist, Engine &eng)
         : fun_(fun)
         , dist_(dist)
+        , engine_(eng)
         { }
 
         void operator()(const char *name, int run) 
         {
             for(int i = 0; i < run; i++)
             {
-                fun_(name, dist_(RandomEngine));        
+                fun_(name, dist_(engine_));        
             }
         }
 
@@ -283,6 +281,7 @@ namespace yats
 
         function_t fun_;
         Dist dist_;
+        Engine &engine_;
     };
     
     struct context
@@ -292,7 +291,6 @@ namespace yats
         std::string name_;
         std::vector<Task> setup_;
         std::vector<Task> teardown_;
-
         std::vector<std::pair<Task,std::string>> task_list_;
         
         static std::map<std::string, context> &

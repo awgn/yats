@@ -57,35 +57,35 @@
 
 #define Test(name) \
     void test_ ## name(const char *); \
-    yats::task_register hook_ ## name(test_ ## name, task_register::type::test, _context_name, #name); \
+    yats::task_register hook_ ## name(test_ ## name, yats::task_register::type::test, _context_name, #name); \
     void test_ ## name(const char *_test_name)
 
 
 #define UniformRandom(name, a, b, arg) \
     void uniform_ ## name(const char *, decltype(a)); \
     yats::task_register unihook_ ## name(yats::extended_tag(), \
-                                         (RandomTask< std::uniform_int_distribution<decltype(a)>, decltype(RandomEngine)>\
+                                         (yats::RandomTask< std::uniform_int_distribution<decltype(a)>, decltype(RandomEngine)>\
                                          (uniform_ ## name, (std::uniform_int_distribution<>(a,b)), RandomEngine)), \
-                                         task_register::type::random, _context_name, #name); \
+                                         yats::task_register::type::random, _context_name, #name); \
     void uniform_ ## name(const char *_test_name, decltype(a) arg)
 
 
 #define Random(name, dist, arg) \
     void uniform_ ## name(const char *, typename decltype(dist)::result_type); \
-    yats::task_register unihook_ ## name(yats::extended_tag(), (RandomTask<decltype(dist), decltype(RandomEngine)>(uniform_ ## name, dist, RandomEngine)), \
-                                         task_register::type::random, _context_name, #name); \
+    yats::task_register unihook_ ## name(yats::extended_tag(), (yats::RandomTask<decltype(dist), decltype(RandomEngine)>(uniform_ ## name, dist, RandomEngine)), \
+                                         yats::task_register::type::random, _context_name, #name); \
     void uniform_ ## name(const char *_test_name, typename decltype(dist)::result_type arg)
 
 
 #define Setup(name) \
     void setup_ ## name(const char *); \
-    yats::task_register fixture_ ## name(setup_ ## name, task_register::type::setup, _context_name); \
+    yats::task_register fixture_ ## name(setup_ ## name, yats::task_register::type::setup, _context_name); \
     void setup_ ## name(const char *)
 
 
 #define Teardown(name) \
     void teardown_ ## name(const char *); \
-    yats::task_register fixture_ ## name(teardown_ ## name, task_register::type::teardown, _context_name); \
+    yats::task_register fixture_ ## name(teardown_ ## name, yats::task_register::type::teardown, _context_name); \
     void teardown_ ## name(const char *)
 
 

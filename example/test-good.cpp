@@ -91,8 +91,10 @@ Context(good_context)
     Test(test_10)
     {
         AssertThrow( throw std::logic_error("ok"), std::logic_error("ok"));
-    }    
-    
+    }       
+
+#if defined(__clang__) || (__GNUC_MINOR__ > 6)
+
     /////////////////  uniform distribution: dice 1 - 6
     
     UniformRandom(test_14, 1, 6, x)
@@ -101,6 +103,7 @@ Context(good_context)
         Assert( x , is_less_equal(6));
     }
 
+#endif
 
 }
 

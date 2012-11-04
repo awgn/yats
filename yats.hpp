@@ -60,6 +60,18 @@
     yats::task_register hook_ ## name(test_ ## name, yats::task_register::type::test, _context_name, #name); \
     void test_ ## name(const char *_test_name)
 
+#define Setup(name) \
+    void setup_ ## name(const char *); \
+    yats::task_register fixture_ ## name(setup_ ## name, yats::task_register::type::setup, _context_name); \
+    void setup_ ## name(const char *)
+
+
+#define Teardown(name) \
+    void teardown_ ## name(const char *); \
+    yats::task_register fixture_ ## name(teardown_ ## name, yats::task_register::type::teardown, _context_name); \
+    void teardown_ ## name(const char *)
+
+#if defined(__clang__) || (__GNUC_MINOR__ > 6)
 
 #define UniformRandom(name, a, b, arg) \
     void uniform_ ## name(const char *, decltype(a)); \
@@ -76,17 +88,7 @@
                                          yats::task_register::type::random, _context_name, #name); \
     void uniform_ ## name(const char *_test_name, typename decltype(dist)::result_type arg)
 
-
-#define Setup(name) \
-    void setup_ ## name(const char *); \
-    yats::task_register fixture_ ## name(setup_ ## name, yats::task_register::type::setup, _context_name); \
-    void setup_ ## name(const char *)
-
-
-#define Teardown(name) \
-    void teardown_ ## name(const char *); \
-    yats::task_register fixture_ ## name(teardown_ ## name, yats::task_register::type::teardown, _context_name); \
-    void teardown_ ## name(const char *)
+#endif
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -307,11 +309,11 @@ namespace yats
         , task_list_()
         {}
 
-        context(context &&) = default;
-        context& operator=(context &&) = default;
-        
-        context(context const &) = delete;
-        context& operator=(context const &) = delete;
+        // context(context &&) = default;
+        // context& operator=(context &&) = default;
+        // 
+        // context(context const &) = delete;
+        // context& operator=(context const &) = delete;
     };
 
     static void usage(const char *name)

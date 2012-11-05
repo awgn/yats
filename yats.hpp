@@ -71,21 +71,18 @@
     yats::task_register fixture_ ## name(teardown_ ## name, yats::task_register::type::teardown, _context_name); \
     void teardown_ ## name(const char *)
 
-#define UniformRandom(name, a, b, arg) \
-    void uniform_ ## name(const char *, decltype(a)); \
-    yats::task_register unihook_ ## name(yats::extended_tag(), \
-                                         (yats::RandomTask< std::uniform_int_distribution<decltype(a)>, decltype(RandomEngine)>\
-                                         (uniform_ ## name, (std::uniform_int_distribution<>(a,b)), RandomEngine)), \
-                                         yats::task_register::type::random, _context_name, #name); \
-    void uniform_ ## name(const char *_test_name, decltype(a) arg)
+#define DIST_TYPE(dist, name, ...)        dist
+#define DIST_ARG_NAME(dist, name, ...)    name
+#define DIST_RES_TYPE(dist, name, ...)    dist::result_type
+#define DIST_RES_ARGT(dist, name, ...)    dist::result_type name
+#define DIST_INSTANCE(dist, name, ...)    dist(__VA_ARGS__)
 
-#define Random(name, dist, arg) \
-    typedef decltype(dist) name ## rand_type; \
-    void uniform_ ## name(const char *, name ## rand_type::result_type); \
-    yats::task_register unihook_ ## name(yats::extended_tag(), (yats::RandomTask<decltype(dist), decltype(RandomEngine)>(uniform_ ## name, dist, RandomEngine)), \
+#define Random(name, ...) \
+    void random_ ## name(const char *, FOR_EACH(DIST_RES_TYPE,__VA_ARGS__)); \
+    yats::task_register rhook_ ## name(yats::extended_tag(), (yats::RandTask<decltype(RandomEngine), FOR_EACH(DIST_TYPE, __VA_ARGS__)>\
+                                                              (random_ ## name, RandomEngine, FOR_EACH(DIST_INSTANCE, __VA_ARGS__))), \
                                          yats::task_register::type::random, _context_name, #name); \
-    void uniform_ ## name(const char *_test_name, name ## rand_type::result_type arg)
-
+    void random_ ## name(const char *_test_name, FOR_EACH(DIST_RES_ARGT,__VA_ARGS__))
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -123,6 +120,21 @@
 #define XPASTE(a,b)     PASTE(a,b)
 #endif
 
+#define UNPACK_ARGS(...)    __VA_ARGS__
+#define UNPACK(x)           UNPACK_ARGS x
+#define APPLY(f, ...)       f(__VA_ARGS__)
+
+#define FOR_EACH_1(f, x)        APPLY(f,UNPACK(x))
+#define FOR_EACH_2(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_1(f, __VA_ARGS__)
+#define FOR_EACH_3(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_2(f, __VA_ARGS__)
+#define FOR_EACH_5(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_4(f, __VA_ARGS__)
+#define FOR_EACH_6(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_5(f, __VA_ARGS__)
+#define FOR_EACH_7(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_6(f, __VA_ARGS__)
+#define FOR_EACH_8(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_7(f, __VA_ARGS__)
+#define FOR_EACH_9(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_8(f, __VA_ARGS__)
+#define FOR_EACH_10(f, x, ...)  APPLY(f,UNPACK(x)) , FOR_EACH_9(f, __VA_ARGS__)
+#define FOR_EACH(f, ...)        XPASTE(FOR_EACH_, PP_NARG(__VA_ARGS__))(f, __VA_ARGS__)
+
 #define YATS_HEADER(ctx,test,file,line) file, ':', line, ": *** ", ctx, "::", test, ":\n"
 
 #define YATS_ASSERT_1(value)            yats::assert_predicate(value, is_true(),  _context_name, _test_name, __FILE__, __LINE__)
@@ -130,7 +142,6 @@
 #define YATS_ASSERT_NOTHROW(expr)       yats::assert_throw(nothing(), [&]{expr;}, _context_name, _test_name, __FILE__, __LINE__)
 #define YATS_ASSERT_THROW_1(expr)       yats::assert_throw(anything(),[&]{expr;}, _context_name, _test_name, __FILE__, __LINE__)
 #define YATS_ASSERT_THROW_2(expr,obj)   yats::assert_throw(obj,       [&]{expr;}, _context_name, _test_name, __FILE__, __LINE__)
-
 
 #define YATS_STATIC_ERROR_CLASS(expr, msg) \
     struct static_error {\
@@ -255,34 +266,54 @@ namespace yats
     {
         return "any";
     }
-  
-    template <typename Dist, typename Engine>
-    struct RandomTask
+ 
+    // http://stackoverflow.com/questions/7858817/unpacking-a-tuple-to-call-a-matching-function-pointer
+    //
+
+    template<int ...>
+    struct seq { };
+
+    template<int N, int ...S>
+    struct gens : gens<N-1, N-1, S...> { };
+
+    template<int ...S>
+    struct gens<0, S...> {
+        typedef seq<S...> type;
+    };
+
+    template <typename Engine, typename ... Dist>
+    struct RandTask
     {
-        typedef void (*function_t)(const char *name, typename Dist::result_type value);
+        typedef void (*function_t)(const char *name, typename Dist::result_type...);
         typedef void result_type;
 
-        RandomTask(function_t fun, Dist dist, Engine &eng)
-        : fun_(fun)
-        , dist_(dist)
-        , engine_(eng)
-        { }
+        RandTask(function_t f, Engine &e, Dist ... ds)
+        : fun_(f)
+        , engine_(e)
+        , distributions_(std::move(ds)...)
+        {}
+        
+        template <int ...S>
+        void call_test(const char *name, seq<S...>) 
+        {
+            fun_(name, std::get<S>(distributions_)(engine_)...);
+        }
 
         void operator()(const char *name, int run) 
         {
             for(int i = 0; i < run; i++)
             {
-                fun_(name, dist_(engine_));        
+                call_test(name, typename gens<sizeof...(Dist)>::type());
             }
         }
 
     private:
 
         function_t fun_;
-        Dist dist_;
         Engine &engine_;
+        std::tuple<Dist...> distributions_;
     };
-    
+
     struct context
     {
         typedef std::function<void(int)> Task;

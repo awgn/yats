@@ -95,10 +95,13 @@ Context(good_context)
 
     /////////////////  uniform distribution: dice 1 - 6
     
-    UniformRandom(test_14, 1, 6, x)
+    Random(test_14, (std::uniform_int_distribution<int>, x, 1, 6),
+                    (std::lognormal_distribution<double>, y, 0, 0.5) )
     {
         Assert( x , is_greater_equal(1));
         Assert( x , is_less_equal(6));
+
+        Assert( y,  is_greater_equal(0));
     }
 
 }

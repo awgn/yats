@@ -122,14 +122,7 @@ Context(bad_context)
 
     /////////////////  uniform distribution: dice 1 - 6
     
-    UniformRandom(test_14, 1, 6, x)
-    {
-        Assert( x , is_less(0));
-    }
-
-    std::uniform_int_distribution<int> int_dist(1,6);
-
-    Random(test_15, int_dist, x)
+    Random(test_15, (std::uniform_int_distribution<int>, x, 1, 6))
     {
         Assert( x , is_greater(6));
     }

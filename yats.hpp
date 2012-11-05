@@ -71,8 +71,6 @@
     yats::task_register fixture_ ## name(teardown_ ## name, yats::task_register::type::teardown, _context_name); \
     void teardown_ ## name(const char *)
 
-#if defined(__clang__) || (__GNUC_MINOR__ > 6)
-
 #define UniformRandom(name, a, b, arg) \
     void uniform_ ## name(const char *, decltype(a)); \
     yats::task_register unihook_ ## name(yats::extended_tag(), \
@@ -81,14 +79,13 @@
                                          yats::task_register::type::random, _context_name, #name); \
     void uniform_ ## name(const char *_test_name, decltype(a) arg)
 
-
 #define Random(name, dist, arg) \
-    void uniform_ ## name(const char *, typename decltype(dist)::result_type); \
+    typedef decltype(dist) name ## rand_type; \
+    void uniform_ ## name(const char *, name ## rand_type::result_type); \
     yats::task_register unihook_ ## name(yats::extended_tag(), (yats::RandomTask<decltype(dist), decltype(RandomEngine)>(uniform_ ## name, dist, RandomEngine)), \
                                          yats::task_register::type::random, _context_name, #name); \
-    void uniform_ ## name(const char *_test_name, typename decltype(dist)::result_type arg)
+    void uniform_ ## name(const char *_test_name, name ## rand_type::result_type arg)
 
-#endif
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -480,7 +477,7 @@ namespace yats
     }
 
 
-    struct extended_tag { };
+    struct extended_tag {};
     
     struct task_register
     {

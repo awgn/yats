@@ -120,7 +120,6 @@ Context(bad_context)
         throw std::runtime_error("unexpected exception");
     }   
 
-#if defined(__clang__) || (__GNUC_MINOR__ > 6)
     /////////////////  uniform distribution: dice 1 - 6
     
     UniformRandom(test_14, 1, 6, x)
@@ -128,11 +127,12 @@ Context(bad_context)
         Assert( x , is_less(0));
     }
 
-    Random(test_15, (std::uniform_int_distribution<int>(1,6)), x)
+    std::uniform_int_distribution<int> int_dist(1,6);
+
+    Random(test_15, int_dist, x)
     {
         Assert( x , is_greater(6));
     }
-#endif
 
 }
 

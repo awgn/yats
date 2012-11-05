@@ -381,7 +381,7 @@ namespace yats
             if (strcmp(*arg, "-c") == 0 ||
                 strcmp(*arg, "--context") == 0) {
                 if (++arg == (argv+argc))
-                    throw std::runtime_error("YATS: context missing");
+                    throw std::runtime_error("YATS: number of repetition missing");
                 run_cxt.insert(*arg);
                 continue;
             }

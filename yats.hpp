@@ -127,6 +127,7 @@
 #define FOR_EACH_1(f, x)        APPLY(f,UNPACK(x))
 #define FOR_EACH_2(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_1(f, __VA_ARGS__)
 #define FOR_EACH_3(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_2(f, __VA_ARGS__)
+#define FOR_EACH_4(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_3(f, __VA_ARGS__)
 #define FOR_EACH_5(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_4(f, __VA_ARGS__)
 #define FOR_EACH_6(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_5(f, __VA_ARGS__)
 #define FOR_EACH_7(f, x, ...)   APPLY(f,UNPACK(x)) , FOR_EACH_6(f, __VA_ARGS__)

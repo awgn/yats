@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2011 Bonelli Nicola <bonelli@antifork.org>
+ *  Copyright (c) 2011-2012 Bonelli Nicola <bonelli@antifork.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,18 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  */
- 
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                             //
+//  YATS: Yet Another Test Suite. Get the more recent release at https://github.com/awgn/yats  //
+//                                                                                             //
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 #ifndef _YATS_HPP_
 #define _YATS_HPP_ 
+
 
 #include <cstdlib>
 #include <iostream>
@@ -248,7 +257,6 @@ namespace yats
         return std::string(ret.get());
     }
 
-    
     template <typename Tp>
     std::string
     type_name(const Tp &t)
@@ -443,6 +451,7 @@ namespace yats
 
         // iterate over contexts: 
         //
+        
         for(auto & c : context::instance()) 
         {
             if (!run_cxt.empty() &&
@@ -453,8 +462,8 @@ namespace yats
                 std::cout << "context " << c.first << ":\n";
 
             // run setup:               
-            //
-                                         
+            //                             
+            
             for(auto & t : c.second.setup_)
             {
                 t(0);   
@@ -477,6 +486,7 @@ namespace yats
                 {    
                     // run the test here
                     //
+                    
                     t.first.operator()(repeat_run);
                     ok++;  
                 }   

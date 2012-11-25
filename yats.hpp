@@ -644,7 +644,7 @@ namespace yats
     }
 
 
-    ////////////////////////////////////////////// generic predicats: 
+    ////////////////////////////////////////////// generic predicate: 
 
     template <typename T>
     struct predicate
@@ -662,9 +662,16 @@ namespace yats
         {}
         
         bool 
-        operator()(const T &value) const
+        operator()(T const& value) const
         {
             return fun_(value);
+        }
+
+        template <typename T2>
+        bool 
+        operator()(T2 value) const
+        {
+            return fun_(std::move(value));
         }
 
         bool
@@ -748,7 +755,8 @@ namespace yats
     template <typename T1, typename T2>
     void assert_predicate(const T1 &value, const predicate<T2> &pred, const char *ctx, const char *name, const char *file, int line)
     {
-        if (!pred(value)) {
+        if (!pred(value)) 
+        {
             throw yats_error(make_string(YATS_HEADER(ctx, name, file, line), 
                                         "    -> predicate ", pred.name(), ' ', (pred.has_arg() ? pretty_value(pred.arg()) : ""), " failed: got ", pretty_value(value)));
         }

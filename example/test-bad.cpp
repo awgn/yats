@@ -9,7 +9,6 @@
  */
 
 #include <yats.hpp>
-using namespace yats;
 
 
 std::mt19937 RandomEngine;
@@ -126,7 +125,19 @@ Context(bad_context)
     {
         Assert( x , is_greater(6));
     }
+    
+    /////////////////  boolean combinator: 
 
+    Test(test_16)
+    {
+        Assert(42, is_less(0) and is_greater(0));
+
+    }
+
+    Test(test_17)
+    {
+        Assert(1, !is_greater(0));
+    }
 }
 
 int

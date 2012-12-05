@@ -10,8 +10,6 @@
 
 #include <yats.hpp>
 
-using namespace yats;
- 
 
 std::mt19937 RandomEngine;
 
@@ -99,6 +97,7 @@ Context(good_context)
                     (std::lognormal_distribution<double>, y, 0, 0.5) )
     {
         Assert( x , is_greater_equal(1));
+
         Assert( x , is_less_equal(6));
 
         Assert( y,  is_greater_equal(0));

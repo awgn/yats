@@ -28,10 +28,9 @@
 #ifndef _YATS_HPP_
 #define _YATS_HPP_ 
 
-
-#include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <cstdlib>
 #include <string>
 #include <cstring>
 #include <type_traits>
@@ -221,8 +220,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-
-namespace yats 
+inline namespace yats 
 {
     using namespace std::placeholders;
 
@@ -407,7 +405,6 @@ namespace yats
         format(out, std::forward<Ts>(args)...);
         return out.str();
     }
-
 
     ////////////////////////////////////////////// run tests: 
    
@@ -613,9 +610,19 @@ namespace yats
         enum { value = sizeof(test<T>(0)) == sizeof(__one) };
     };
                                        
+    template <typename T>
+    class is_yats_expression : public __sfinae_types
+    {
+        template <typename C> static __one test(typename std::remove_reference<typename C::yats_expression>::type *);
+        template <typename C> static __two test(...);
+    public:    
+        enum { value = sizeof(test<T>(0)) == sizeof(__one) };
+    };
+
 
     ////////////////////////////////////////////// pretty printer values: 
-    
+
+
     template <typename T>
     typename std::enable_if<std::is_integral<T>::value, std::string>::type
     pretty_value(const T &v)
@@ -623,7 +630,7 @@ namespace yats
         std::ostringstream o;
         o << std::boolalpha << v; 
         if (v > 15) 
-            o << '(' << std::hex << "0x" << v << std::dec << ')';
+            o << ':' << std::hex << "0x" << v << std::dec;
         return o.str();
     }
     template <typename T>
@@ -643,16 +650,17 @@ namespace yats
         return "()";
     }
 
-
     ////////////////////////////////////////////// generic predicate: 
 
     template <typename T>
     struct predicate
     {
+        typedef int yats_expression;
+
         predicate(const char * name, std::function<bool(const T&)> fun, const T& arg)
         : name_(name)
         , fun_(fun)
-        , arg_(std::make_pair(arg, true))
+        , arg_(new T(arg))
         {}
         
         predicate(const char * name, std::function<bool(const T&)> fun)
@@ -674,32 +682,85 @@ namespace yats
             return fun_(std::move(value));
         }
 
-        bool
-        has_arg() const
+        std::string 
+        str() const
         {
-            return arg_.second;
-        }
-
-        const T &
-        arg() const
-        {
-            return arg_.first;
-        }
-
-        const
-        std::string &
-        name() const
-        {
-            return name_;
+            if (arg_)
+                return name_ + std::string("(") + pretty_value(*arg_) + std::string(")");
+            else
+                return name_ + "()";
         }
 
     private:
         std::string name_;
         std::function<bool(const T&)> fun_;
-        std::pair<typename std::remove_reference<T>::type, bool> arg_;
+        std::shared_ptr<typename std::remove_reference<T>::type> arg_;
+    };
+
+
+    template <typename P1, typename P2, typename Fun>
+    struct binary_predicate
+    {
+        typedef int yats_expression;
+    
+    private:
+        P1 lhs_;
+        P2 rhs_;
+
+    public:
+        binary_predicate(P1 const &lhs, P2 const &rhs)
+        : lhs_(lhs)
+        , rhs_(rhs)
+        {}
+
+        ~binary_predicate() = default;
+
+        template <typename T>
+        bool 
+        operator()(T value) const
+        {
+            auto l = lhs_(value);
+            return Fun()(l, rhs_(std::move(value)));
+        }
+
+        std::string
+        str() const
+        {
+            return std::string("(") + lhs_.str() + 
+                   std::string(" ") + Fun::str() + std::string(" ") + rhs_.str() + std::string(")");
+        }
     };
 
     
+    template <typename P1, typename Fun>
+    struct unary_predicate
+    {
+        typedef int yats_expression;
+    
+    private:
+        P1 arg_;
+
+    public:
+        unary_predicate(P1 const &lhs)
+        : arg_(lhs)
+        {}
+
+        ~unary_predicate() = default;
+
+        template <typename T>
+        bool 
+        operator()(T value) const
+        {
+            return Fun()(arg_(std::move(value)));
+        }
+
+        std::string
+        str() const
+        {
+            return Fun::str() + std::string("(") + arg_.str() + std::string(")");
+        }
+    };
+
     ////////////////////////////////////////////// standard predicats: 
 
 #define YATS_FUNCTIONAL(_name_) \
@@ -720,7 +781,54 @@ namespace yats
     YATS_FUNCTIONAL(equal_to);
     YATS_FUNCTIONAL(not_equal_to);
 
+    struct Or
+    {
+        static const char * str() { return "or"; }
+        
+        bool operator()(bool a, bool b) const
+        { return a || b; }
+    };
+
+    struct And
+    {
+        static const char * str() { return "and"; }
+        
+        bool operator()(bool a, bool b) const
+        { return a && b; }
+    };
+
+    struct Not
+    {
+        static const char * str() { return "not"; }
+
+        bool operator()(bool a) const
+        { return !a; }
+    };
+
+    template <typename P>
+    typename std::enable_if<is_yats_expression<P>::value,
+    unary_predicate<P, Not>>::type
+    operator!(P const &expr)
+    {
+        return unary_predicate<P, Not>(expr);
+    }
+
+    template <typename P1, typename P2>
+    typename std::enable_if<is_yats_expression<P1>::value + is_yats_expression<P2>::value == 2,
+    binary_predicate<P1, P2, Or>>::type
+    operator ||(P1 const &lhs, P2 const &rhs)
+    {
+        return binary_predicate<P1, P2, Or>(lhs, rhs);
+    }
     
+    template <typename P1, typename P2>
+    typename std::enable_if<is_yats_expression<P1>::value + is_yats_expression<P2>::value == 2,
+    binary_predicate<P1, P2, And>>::type
+    operator &&(P1 const &lhs, P2 const &rhs)
+    {
+        return binary_predicate<P1, P2, And>(lhs, rhs);
+    }
+
     ////////////////////////////////////////////// boolean predicats: 
 
     inline predicate<bool>
@@ -752,13 +860,13 @@ namespace yats
 
     ////////////////////////////////////////////// YATS assertions: 
 
-    template <typename T1, typename T2>
-    void assert_predicate(const T1 &value, const predicate<T2> &pred, const char *ctx, const char *name, const char *file, int line)
+    template <typename T1, typename P>
+    void assert_predicate(const T1 &value, const P &pred, const char *ctx, const char *name, const char *file, int line)
     {
         if (!pred(value)) 
         {
             throw yats_error(make_string(YATS_HEADER(ctx, name, file, line), 
-                                        "    -> predicate ", pred.name(), ' ', (pred.has_arg() ? pretty_value(pred.arg()) : ""), " failed: got ", pretty_value(value)));
+                                        "    -> predicate ", pred.str(), " failed: got ", pretty_value(value)));
         }
     }
 

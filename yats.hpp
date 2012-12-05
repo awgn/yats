@@ -697,9 +697,10 @@ inline namespace yats
         std::shared_ptr<typename std::remove_reference<T>::type> arg_;
     };
 
+    ////////////////////////////////////////////// yats template expressions: 
 
     template <typename P1, typename P2, typename Fun>
-    struct binary_predicate
+    struct binary_expression
     {
         typedef int yats_expression;
     
@@ -708,12 +709,12 @@ inline namespace yats
         P2 rhs_;
 
     public:
-        binary_predicate(P1 const &lhs, P2 const &rhs)
+        binary_expression(P1 const &lhs, P2 const &rhs)
         : lhs_(lhs)
         , rhs_(rhs)
         {}
 
-        ~binary_predicate() = default;
+        ~binary_expression() = default;
 
         template <typename T>
         bool 
@@ -733,7 +734,7 @@ inline namespace yats
 
     
     template <typename P1, typename Fun>
-    struct unary_predicate
+    struct unary_expression
     {
         typedef int yats_expression;
     
@@ -741,11 +742,11 @@ inline namespace yats
         P1 arg_;
 
     public:
-        unary_predicate(P1 const &lhs)
+        unary_expression(P1 const &lhs)
         : arg_(lhs)
         {}
 
-        ~unary_predicate() = default;
+        ~unary_expression() = default;
 
         template <typename T>
         bool 
@@ -761,7 +762,7 @@ inline namespace yats
         }
     };
 
-    ////////////////////////////////////////////// standard predicats: 
+    ////////////////////////////////////////////// standard predicates: 
 
 #define YATS_FUNCTIONAL(_name_) \
     template <typename T> \
@@ -781,55 +782,48 @@ inline namespace yats
     YATS_FUNCTIONAL(equal_to);
     YATS_FUNCTIONAL(not_equal_to);
 
-    struct Or
+    ////////////////////////////////////////////// boolean combinators: or, and, not... 
+    
+    struct Or : std::logical_or<bool>
     {
         static const char * str() { return "or"; }
-        
-        bool operator()(bool a, bool b) const
-        { return a || b; }
     };
 
-    struct And
+    struct And : std::logical_and<bool>
     {
         static const char * str() { return "and"; }
-        
-        bool operator()(bool a, bool b) const
-        { return a && b; }
     };
 
-    struct Not
+    struct Not : std::logical_not<bool>
     {
         static const char * str() { return "not"; }
-
-        bool operator()(bool a) const
-        { return !a; }
     };
 
     template <typename P>
     typename std::enable_if<is_yats_expression<P>::value,
-    unary_predicate<P, Not>>::type
+    unary_expression<P, Not>>::type
     operator!(P const &expr)
     {
-        return unary_predicate<P, Not>(expr);
+        return unary_expression<P, Not>(expr);
     }
 
     template <typename P1, typename P2>
     typename std::enable_if<is_yats_expression<P1>::value + is_yats_expression<P2>::value == 2,
-    binary_predicate<P1, P2, Or>>::type
+    binary_expression<P1, P2, Or>>::type
     operator ||(P1 const &lhs, P2 const &rhs)
     {
-        return binary_predicate<P1, P2, Or>(lhs, rhs);
+        return binary_expression<P1, P2, Or>(lhs, rhs);
     }
     
     template <typename P1, typename P2>
     typename std::enable_if<is_yats_expression<P1>::value + is_yats_expression<P2>::value == 2,
-    binary_predicate<P1, P2, And>>::type
+    binary_expression<P1, P2, And>>::type
     operator &&(P1 const &lhs, P2 const &rhs)
     {
-        return binary_predicate<P1, P2, And>(lhs, rhs);
+        return binary_expression<P1, P2, And>(lhs, rhs);
     }
 
-    ////////////////////////////////////////////// boolean predicats: 
+    ////////////////////////////////////////////// boolean predicates: 
 
     inline predicate<bool>
     is_true()
@@ -846,7 +840,6 @@ inline namespace yats
                             std::function<bool(bool)>(
                                 std::bind(std::equal_to<bool>(), _1, false)), false); 
     }
-
 
     ////////////////////////////////////////////// predicate factory: 
 

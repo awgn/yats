@@ -36,7 +36,7 @@ data Compiler = Gcc | Clang
                     deriving (Show, Eq, Ord)
 
 yatsVersion :: String
-yatsVersion = "runtime v0.4" 
+yatsVersion = "runtime v0.5" 
 
 
 main :: IO ()
@@ -48,54 +48,50 @@ main = do
 
 
 runMultipleTests :: [String] -> IO [(Bool,Bool)]
-runMultipleTests xs = 
-    do putStrLn $ "YATS " ++ yatsVersion
-       let srcs = getSource xs
-       let opt  = getOption xs
-       mapM (runYatsTests opt) srcs
+runMultipleTests xs = do 
+    putStrLn $ "YATS " ++ yatsVersion
+    let srcs = getSource xs
+    let opt  = getOption xs
+    mapM (runYatsTests opt) srcs
 
 
 runYatsTests :: [Option] -> Source -> IO (Bool,Bool)
-runYatsTests opt src = 
-    do se <- countStaticErrors src
-       putStrLn $ "Running " ++ show(se) ++ " static checks on " ++ src ++ "."
-       liftM2 (,) ((mapM (runStaticTest src opt) $ take se [0..]) >>= 
-                    (\v -> return $ and $ map (\x -> if x == ExitSuccess then True else False) v)) 
-                  (liftM (==ExitSuccess) (runtimeTest src opt))
+runYatsTests opt src = do
+    se <- countStaticErrors src
+    putStrLn $ "Running " ++ show(se) ++ " static checks on " ++ src ++ "."
+    liftM2 (,) ((mapM (runStaticTest src opt) $ take se [0..]) >>= 
+                 (\v -> return $ and $ map (\x -> if x == ExitSuccess then True else False) v)) 
+               (liftM (==ExitSuccess) (runtimeTest src opt))
 
 
 runtimeTest:: Source -> [Option] -> IO ExitCode
-runtimeTest src opt =  do cxx <- getCompiler
-                          let cmd = (compilerCmd cxx src) ++ (unwords opt) ++ " 2> /dev/null"
-                          system cmd >> system ("./" ++ src ++ ".out")
+runtimeTest src opt = liftM makeCmd getCompiler >>= system >> system ("./" ++ src ++ ".out") 
+                        where makeCmd cxx = (compilerCmd cxx src) ++ (unwords opt) ++ " 2> /dev/null" 
+
 
 runStaticTest :: Source -> [Option] -> Int -> IO ExitCode
-runStaticTest src opt n = 
-    do cxx <- getCompiler
-       let cmd = (compilerCmd cxx src) ++ (unwords opt) ++ " -DYATS_STATIC_ERROR=" ++ (show n) ++ " 2> /dev/null"
-       r <- system cmd 
-       if r == ExitSuccess then (system $ "./" ++ src ++ ".out") else return ExitSuccess
+runStaticTest src opt n = do
+    r <- liftM makeCmd getCompiler >>= system
+    if r == ExitSuccess then (system $ "./" ++ src ++ ".out") else return ExitSuccess
+        where makeCmd cxx = (compilerCmd cxx src) ++ (unwords opt) ++ " -DYATS_STATIC_ERROR=" ++ (show n) ++ " 2> /dev/null" 
 
 
 countStaticErrors :: Source -> IO Int
-countStaticErrors file = 
-    do src <- readFile file
-       return $ length $ filter (beginWith "StaticError") $ lines src
+countStaticErrors file = liftM (length . filter (beginWith "StaticError") . lines) $ readFile file 
 
 
 getCompiler :: IO Compiler
 getCompiler =  fileExist "/usr/bin/clang++" >>= (\b -> if b then return Clang else return Gcc)
 
+
 getCompilerExe :: Compiler -> String
 getCompilerExe Gcc   = "/usr/bin/g++"
 getCompilerExe Clang = "/usr/bin/clang++"
 
+
 getCompilerOpt :: Compiler -> [String]
 getCompilerOpt Gcc   =  [ "-std=c++0x", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" ]
 getCompilerOpt Clang =  [ "-std=c++0x", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" , "-Wno-unneeded-internal-declaration"]
-
--- getCompilerOpt Clang =  [ "-std=c++0x", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-include-pch", precomp_header, "-Wextra", "-Wno-unused-parameter" , "-Wno-unneeded-internal-declaration"]
-                          -- where precomp_header = "/usr/local/include/yats.hpp.pch"
 
 
 compilerCmd :: Compiler -> String -> String
@@ -116,6 +112,5 @@ getOption = filter (not . isCppSource)
 
 isCppSource :: String -> Bool
 isCppSource name =  ".cpp" `isSuffixOf` name || ".cc" `isSuffixOf` name
-
 
 

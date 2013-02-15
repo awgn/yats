@@ -43,6 +43,7 @@
 #include <map>
 #include <set>
 #include <random>
+#include <chrono>
 
 #ifdef __GNUC__
 #include <cxxabi.h>
@@ -406,7 +407,20 @@ inline namespace yats
         format(out, std::forward<Ts>(args)...);
         return out.str();
     }
-
+    
+    ////////////////////////////////////////////// duration:
+   
+    template <typename Dur>
+    std::string duration_to_string(Dur d)
+    {
+        if (d < std::chrono::milliseconds(10))
+            return std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(d).count()) + " us";
+        if (d < std::chrono::seconds(10))
+            return std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(d).count()/1000.0) + " ms";
+        else
+            return std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(d).count()/1000000.0) + " s";
+    }
+  
     ////////////////////////////////////////////// run tests: 
    
     static int run(int argc = 0, char *argv[] = nullptr)
@@ -515,9 +529,12 @@ inline namespace yats
                     continue;
 
                 if (verbose)
-                    std::cout << "+ running test " << t.second << "...\n";
+                    std::cout << "+ running '" << t.second << "'... " << std::flush;
                 
                 run++;
+
+                auto start = std::chrono::system_clock::now();
+
                 try
                 {    
                     // run the test here
@@ -540,6 +557,11 @@ inline namespace yats
                 
                 if (err && exit_immediatly)
                     _Exit(1);
+
+                if (verbose)
+                    std::cout << "[" << 
+                        duration_to_string(std::chrono::system_clock::now() - start) << "]" << std::endl;
+
             }
             
             // run teardown:

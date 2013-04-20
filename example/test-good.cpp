@@ -29,8 +29,8 @@ Context(good_context)
     // StaticError goes here (needs runtime YATS)
     //
     
-    StaticError( NonCopyable x = NonCopyable(),       "non copyable class!");
-    StaticError( NonCopyable x; Noncopyable y; x = y, "non assignable class!");
+    StaticError( NonCopyable x = NonCopyable(),       "non copyable class!")
+    StaticError( NonCopyable x; Noncopyable y; x = y, "non assignable class!")
 
 
     Test(test_0)
@@ -100,7 +100,7 @@ Context(good_context)
 
         Assert( x , is_less_equal(6));
 
-        Assert( y,  is_greater_equal(0));
+        Assert( y,  is_greater_equal(0.0));
     }
 
 }

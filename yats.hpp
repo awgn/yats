@@ -416,9 +416,9 @@ inline namespace yats
         if (d < std::chrono::milliseconds(10))
             return std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(d).count()) + " us";
         if (d < std::chrono::seconds(10))
-            return std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(d).count()/1000.0) + " ms";
+            return std::to_string(static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(d).count())/1000.0) + " ms";
         else
-            return std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(d).count()/1000000.0) + " s";
+            return std::to_string(static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(d).count())/1000000.0) + " s";
     }
   
     ////////////////////////////////////////////// run tests: 
@@ -816,12 +816,12 @@ inline namespace yats
                                 value); \
     }
 
-    YATS_FUNCTIONAL(greater);
-    YATS_FUNCTIONAL(greater_equal);
-    YATS_FUNCTIONAL(less);
-    YATS_FUNCTIONAL(less_equal);
-    YATS_FUNCTIONAL(equal_to);
-    YATS_FUNCTIONAL(not_equal_to);
+    YATS_FUNCTIONAL(greater)
+    YATS_FUNCTIONAL(greater_equal)
+    YATS_FUNCTIONAL(less)
+    YATS_FUNCTIONAL(less_equal)
+    YATS_FUNCTIONAL(equal_to)
+    YATS_FUNCTIONAL(not_equal_to)
 
     ////////////////////////////////////////////// boolean combinators: or, and, not... 
     

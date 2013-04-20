@@ -36,15 +36,15 @@ data Compiler = Gcc | Clang
                     deriving (Show, Eq, Ord)
 
 yatsVersion :: String
-yatsVersion = "runtime v0.5" 
+yatsVersion = "runtime v1.0" 
 
 
 main :: IO ()
 main = do
     args <- getArgs
-    if (getSource args == [])
-    then putStrLn "yats: source-test.cpp [source-test2.cpp...] [-comp_opt -comp_opt2... ]"
-    else runMultipleTests args >> return ()
+    if getSource args == []
+        then putStrLn "yats: source-test.cpp [source-test2.cpp...] [-comp_opt -comp_opt2... ]"
+        else void (runMultipleTests args)
 
 
 runMultipleTests :: [String] -> IO [(Bool,Bool)]
@@ -58,22 +58,23 @@ runMultipleTests xs = do
 runYatsTests :: [Option] -> Source -> IO (Bool,Bool)
 runYatsTests opt src = do
     se <- countStaticErrors src
-    putStrLn $ "Running " ++ show(se) ++ " static checks on " ++ src ++ "."
-    liftM2 (,) ((mapM (runStaticTest src opt) $ take se [0..]) >>= 
-                 (\v -> return $ and $ map (\x -> if x == ExitSuccess then True else False) v)) 
+    putStrLn $ "Running " ++ show se ++ " static checks on " ++ src ++ "."
+    liftM2 (,) (liftM (all (== ExitSuccess)) (mapM (runStaticTest src opt) $ take se [0..]))  
                (liftM (==ExitSuccess) (runtimeTest src opt))
 
 
 runtimeTest:: Source -> [Option] -> IO ExitCode
 runtimeTest src opt = liftM makeCmd getCompiler >>= system >> system ("./" ++ src ++ ".out") 
-                        where makeCmd cxx = (compilerCmd cxx src) ++ (unwords opt) ++ " 2> /dev/null" 
+                        where makeCmd cxx = compilerCmd cxx src ++ unwords opt ++ " 2> /dev/null" 
 
 
 runStaticTest :: Source -> [Option] -> Int -> IO ExitCode
 runStaticTest src opt n = do
     r <- liftM makeCmd getCompiler >>= system
-    if r == ExitSuccess then (system $ "./" ++ src ++ ".out") else return ExitSuccess
-        where makeCmd cxx = (compilerCmd cxx src) ++ (unwords opt) ++ " -DYATS_STATIC_ERROR=" ++ (show n) ++ " 2> /dev/null" 
+    if r == ExitSuccess 
+      then system $ "./" ++ src ++ ".out" 
+      else return ExitSuccess
+        where makeCmd cxx = compilerCmd cxx src ++ unwords opt ++ " -DYATS_STATIC_ERROR=" ++ show n ++ " 2> /dev/null" 
 
 
 countStaticErrors :: Source -> IO Int
@@ -95,7 +96,7 @@ getCompilerOpt Clang =  [ "-std=c++0x", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-We
 
 
 compilerCmd :: Compiler -> String -> String
-compilerCmd cxx src = (getCompilerExe cxx) ++ " " ++ (unwords $ getCompilerOpt cxx) ++ " " ++ src ++ " -o " ++ src ++ ".out "
+compilerCmd cxx src = getCompilerExe cxx ++ " " ++ unwords (getCompilerOpt cxx) ++ " " ++ src ++ " -o " ++ src ++ ".out "
                                     
 
 beginWith :: String -> String -> Bool

@@ -70,7 +70,7 @@ runtimeTest src opt = liftM makeCmd getCompiler >>= system >> system ("./" ++ sr
 
 runStaticTest :: Source -> [Option] -> Int -> IO ExitCode
 runStaticTest src opt n = do
-    r <- liftM makeCmd getCompiler >>= system
+    r <- liftM makeCmd getCompiler >>= system 
     if r == ExitSuccess 
       then system $ "./" ++ src ++ ".out" 
       else return ExitSuccess
@@ -82,7 +82,7 @@ countStaticErrors file = liftM (length . filter (beginWith "StaticError") . line
 
 
 getCompiler :: IO Compiler
-getCompiler =  fileExist "/usr/bin/clang++" >>= (\b -> if b then return Clang else return Gcc)
+getCompiler =  fileExist "/usr/bin/g++" >>= (\b -> if b then return Gcc else return Clang)
 
 
 getCompilerExe :: Compiler -> String
@@ -91,8 +91,8 @@ getCompilerExe Clang = "/usr/bin/clang++"
 
 
 getCompilerOpt :: Compiler -> [String]
-getCompilerOpt Gcc   =  [ "-std=c++0x", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" ]
-getCompilerOpt Clang =  [ "-std=c++0x", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" , "-Wno-unneeded-internal-declaration"]
+getCompilerOpt Gcc   =  [ "-std=c++11", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" ]
+getCompilerOpt Clang =  [ "-std=c++11", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" , "-Wno-unneeded-internal-declaration"]
 
 
 compilerCmd :: Compiler -> String -> String

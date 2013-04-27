@@ -42,7 +42,7 @@ yatsVersion = "runtime v1.0"
 main :: IO ()
 main = do
     args <- getArgs
-    if getSource args == []
+    if null (getSource args) 
         then putStrLn "yats: source-test.cpp [source-test2.cpp...] [-comp_opt -comp_opt2... ]"
         else void (runMultipleTests args)
 
@@ -82,7 +82,7 @@ countStaticErrors file = liftM (length . filter (beginWith "StaticError") . line
 
 
 getCompiler :: IO Compiler
-getCompiler =  fileExist "/usr/bin/g++" >>= (\b -> if b then return Gcc else return Clang)
+getCompiler =  fileExist "/usr/bin/g++" >>= (\b -> return $ if b then Gcc else Clang)
 
 
 getCompilerExe :: Compiler -> String

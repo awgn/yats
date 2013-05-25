@@ -663,7 +663,12 @@ inline namespace yats
 
     ////////////////////////////////////////////// pretty printer values: 
 
-
+    std::string inline pretty_value(bool v)
+    {
+        std::ostringstream o;
+        o << std::boolalpha << v; 
+        return o.str();
+    }
     template <typename T>
     typename std::enable_if<std::is_integral<T>::value, std::string>::type
     pretty_value(const T &v)

@@ -1,7 +1,7 @@
 # (C) 2011-13 Nicola Bonelli <nicola.bonelli@antifork.org>
 
 CXX      = g++
-CXXFLAGS = -I ../ -std=c++11 -g -Wall -Wextra -pedantic 
+CXXFLAGS = -I ../ -std=c++11 -g -Wall -Wextra -Wsign-conversion -pedantic 
 
 
 all: test-good test-bad

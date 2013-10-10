@@ -109,9 +109,9 @@ getSource = filter isCppSource
 
 getOption :: [String] -> [String]
 getOption = filter (not . isCppSource)
-
+                                                                    
 
 isCppSource :: String -> Bool
-isCppSource name =  ".cpp" `isSuffixOf` name || ".cc" `isSuffixOf` name
+isCppSource name =  any id $ map (`isSuffixOf` name) [".cpp", ".CPP", ".cxx" ".cc"] 
 
 

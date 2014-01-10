@@ -45,7 +45,7 @@ Context(good_context)
 
     Test(test_2)
     {
-        Assert(2, is_greater(1));
+        Assert(2, not is_greater(2) and not is_less(2));
     }
     
     Test(test_3)
@@ -70,7 +70,7 @@ Context(good_context)
 
     Test(test_7)
     {
-        Assert(42, is_not_equal_to(39));
+        Assert(42, is_not_equal_to(39) and is_not_equal_to(11));
     }
     
     ////////////////// exceptions

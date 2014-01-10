@@ -231,17 +231,18 @@ inline namespace yats
     {
         explicit yats_error(const std::string &msg)
         : std::runtime_error(msg)
-        {}
+        { } 
         
         virtual ~yats_error() throw() 
-        {}
+        { }
     };
     
     ////////////////////////////////////////////// nothing and anything: 
 
     struct nothing
     {
-        static constexpr const char * what() {
+        static constexpr const char * what() 
+        {
             return "nothing";
         }
     };
@@ -254,7 +255,8 @@ inline namespace yats
     
     struct anything
     {
-        static constexpr const char * what() {
+        static constexpr const char * what() 
+        {
             return "anything";
         }
     };
@@ -432,8 +434,10 @@ inline namespace yats
 
     static int run(int argc = 0, char *argv[] = nullptr)
     {
-        bool exit_immediatly = false, err = false, verbose = false;
-        int  repeat_run = 1000;
+        bool exit_immediatly = false, 
+             err             = false, 
+             verbose         = false;
+        int  repeat_run      = 1000;
 
         std::set<std::string> run_ctx, run_test;
 
@@ -511,7 +515,7 @@ inline namespace yats
         
         for(auto & c : context::instance()) 
         {
-            if (!run_ctx.empty() &&
+            if (!run_ctx.empty() && 
                 run_ctx.find(c.first) == run_ctx.end())
                 continue;
 
@@ -545,7 +549,6 @@ inline namespace yats
                 try
                 {    
                     // run the test here
-                    //
                     
                     t.first.operator()(repeat_run);
                     ok++;  

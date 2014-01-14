@@ -608,13 +608,13 @@ inline namespace yats
             switch(t)
             {
             case type::test:    
-                it->second->task_list_.push_back(std::make_pair(std::bind(fun, name), name));        
+                it->second->task_list_.push_back(std::make_pair(context::Task{std::bind(fun, name)}, name));        
                 break;
             case type::setup:
-                it->second->setup_.push_back(std::bind(fun,name)); 
+                it->second->setup_.push_back(context::Task{std::bind(fun,name)}); 
                 break;
             case type::teardown:
-                it->second->teardown_.push_back(std::bind(fun,name)); 
+                it->second->teardown_.push_back(context::Task{std::bind(fun,name)}); 
                 break;
             case type::random:
                 throw std::logic_error("yats");
@@ -884,17 +884,17 @@ inline namespace yats
     inline predicate<bool>
     is_true()
     {
-        return predicate<bool>("is_boolean",  
-                            std::function<bool(bool)>(
-                                std::bind(std::equal_to<bool>(), _1, true)), true); 
+        return predicate<bool>( "is_boolean",  
+                                std::function<bool(bool)>(
+                                    std::bind(std::equal_to<bool>(), _1, true)), true); 
     }
     
     inline predicate<bool>
     is_false()
     {
-        return predicate<bool>("is_boolean",  
-                            std::function<bool(bool)>(
-                                std::bind(std::equal_to<bool>(), _1, false)), false); 
+        return predicate<bool>( "is_boolean",  
+                                std::function<bool(bool)>(
+                                    std::bind(std::equal_to<bool>(), _1, false)), false); 
     }
 
     ////////////////////////////////////////////// predicate factory: 

@@ -18,15 +18,15 @@ Context(bad_context)
 {
     // Example: a class which is copyable
     //
-    
+
     struct NonCopyable
     {
-        NonCopyable() {};
+        NonCopyable() {}
     };
-                   
+
     // StaticErrors that fail:
     //
-    
+
     StaticError(NonCopyable x = NonCopyable(),       "Non copy-constructible class")
     StaticError(NonCopyable x; NonCopyable y; x = y, "Non assignable class")
 
@@ -39,10 +39,10 @@ Context(bad_context)
     {
         std::cout << "[*] bad_context tests finished. ___________________________" << std::endl;
     }
-    
+
     ////////////////// tests that fail
-    //  
-    
+    //
+
     Test(test_0)
     {
         Assert(std::vector<int>().empty(), is_false());
@@ -82,7 +82,7 @@ Context(bad_context)
     {
         Assert(42, is_not_equal_to(42));
     }
-    
+
     ////////////////// exceptions
 
     Test(test_8)
@@ -94,7 +94,7 @@ Context(bad_context)
         int n = 0;
         AssertThrow(n++);
     }
- 
+
     Test(test_10)
     {
         AssertThrow(throw std::runtime_error("error"), std::logic_error("bad"));
@@ -111,22 +111,22 @@ Context(bad_context)
     {
         Assert(11, make_predicate<int>("is_even", [](int n) -> bool { return !(n&1); }));
     }
-    
+
     ////////////////// unexpected exception
-    
+
     Test(test_13)
     {
         throw std::runtime_error("unexpected exception");
-    }   
+    }
 
     /////////////////  uniform distribution: dice 1 - 6
-    
+
     Random(test_15, (std::uniform_int_distribution<int>, x, 1, 6))
     {
         Assert( x , is_greater(6));
     }
-    
-    /////////////////  boolean combinator: 
+
+    /////////////////  boolean combinator:
 
     Test(test_16)
     {
@@ -145,4 +145,4 @@ main(int argc, char *argv[])
 {
     return yats::run(argc, argv);
 }
- 
+

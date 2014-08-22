@@ -18,17 +18,17 @@ Context(good_context)
 {
     // Example: noncopyable class...
     //
-    
+
     struct NonCopyable
     {
-        NonCopyable() {};
+        NonCopyable() {}
         NonCopyable(const NonCopyable&) = delete;
         NonCopyable& operator=(const NonCopyable&) = delete;
     };
 
     // StaticError goes here (needs runtime YATS)
     //
-    
+
     StaticError( NonCopyable x = NonCopyable(),       "non copyable class!")
     StaticError( NonCopyable x; Noncopyable y; x = y, "non assignable class!")
 
@@ -47,7 +47,7 @@ Context(good_context)
     {
         Assert(2, not is_greater(2) and not is_less(2));
     }
-    
+
     Test(test_3)
     {
         Assert(2, is_greater_equal(2));
@@ -56,13 +56,13 @@ Context(good_context)
     Test(test_4)
     {
         Assert(1, is_less(2));
-    }           
+    }
 
     Test(test_5)
     {
         Assert(0, is_less_equal(1));
     }
-    
+
     Test(test_6)
     {
         Assert(42, is_equal_to(42));
@@ -72,7 +72,7 @@ Context(good_context)
     {
         Assert(42, is_not_equal_to(39) and is_not_equal_to(11));
     }
-    
+
     ////////////////// exceptions
 
     Test(test_8)
@@ -84,15 +84,15 @@ Context(good_context)
     Test(test_9)
     {
         AssertThrow( throw std::runtime_error("ok") );
-    }    
+    }
 
     Test(test_10)
     {
         AssertThrow( throw std::logic_error("ok"), std::logic_error("ok"));
-    }       
+    }
 
     /////////////////  uniform distribution: dice 1 - 6
-    
+
     Random(test_14, (std::uniform_int_distribution<int>, x, 1, 6),
                     (std::lognormal_distribution<double>, y, 0, 0.5) )
     {
@@ -111,4 +111,4 @@ main(int argc, char *argv[])
 {
     return yats::run(argc, argv);
 }
- 
+

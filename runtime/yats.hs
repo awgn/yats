@@ -28,11 +28,13 @@ import System.Exit
 import System.Posix.Files
 import System.IO.Unsafe
 import System.Directory
+import System.Console.ANSI
 
 import Control.Monad
 
 import Data.List
 import Data.Char
+import Data.Maybe
 
 type Option = String
 type Source = String
@@ -43,38 +45,59 @@ data Compiler = Gcc | Clang deriving (Show, Eq, Ord)
 yatsVersion :: String
 yatsVersion = "runtime v1.1"
 
+magenta = setSGRCode [SetColor Foreground Vivid Magenta]
+blue    = setSGRCode [SetColor Foreground Vivid Blue]
+cyan    = setSGRCode [SetColor Foreground Vivid Cyan]
+green   = setSGRCode [SetColor Foreground Vivid Green]
+red     = setSGRCode [SetColor Foreground Vivid Red]
+bold    = setSGRCode [SetConsoleIntensity BoldIntensity]
+reset   = setSGRCode []
+
 
 main :: IO ()
 main = do
     args <- getArgs
     if null args
         then putStrLn "yats: binary1 binary2 source1.cpp [source2.cpp...] [-comp_opt -comp_opt2... ]"
-        else runMultipleTests args >> putStrLn "All tests passed."
+        else runMultipleTests args
 
 
 runMultipleTests :: [String] -> IO ()
 runMultipleTests xs = do
     putStrLn $ "YATS " ++ yatsVersion
+
     let srcs = filter isCppSource xs
     let bins = filter isBinary xs
     let opts = getOption xs
+
     putStrLn $ "compiler options : " ++ show opts
     putStrLn $ "source code tests: " ++ show srcs
     putStrLn $ "binary tests     : " ++ show bins
-    forM_ bins $ runYatsBinTests >=> checkError
-    forM_ srcs $ runYatsSrcTests opts >=> checkError
+
+    t1 <- forM bins $ runYatsBinTests >=> checkError
+    t2 <- forM srcs $ runYatsSrcTests opts >=> checkError
+
+    let total = length t1 + length t2
+
+    let p1 = foldr (\b acc -> if b then acc + 1 else acc) 0 t1
+    let p2 = foldr (\b acc -> if b then acc + 1 else acc) 0 t2
+
+    if (p1+p2) == total
+        then putStrLn $ bold ++ "All tests successfully passed." ++ reset
+        else do putStrLn $ bold ++ show (p1+p2) ++ " tests passed out of " ++ show total  ++ ":" ++ reset
+                mapM_ (\name -> putStrLn $ "    " ++ name ++ " failed!") $ mapMaybe (\(e,n) -> if not e then Just n else Nothing) (zip (t1 ++ t2) (bins ++ srcs))
 
 
 runYatsBinTests :: FilePath -> IO (Bool, Bool, Bool)
 runYatsBinTests bin = do
-    putStrLn $ "Running " ++ bin ++ "..."
+    putStrLn $ bold ++ "Running " ++ bin ++ "..." ++ reset
     liftM (True, True,) $ liftM (==ExitSuccess) (runBinary bin)
 
 
 runYatsSrcTests :: [Option] -> Source -> IO (Bool,Bool,Bool)
 runYatsSrcTests opt src = do
     se <- countStaticErrors src
-    putStrLn $ "Running " ++ show se ++ " static checks on " ++ src ++ "..."
+    putStrLn $ bold ++ "Running " ++ show se ++ " static checks on " ++ src ++ "..." ++ reset
     b1 <- liftM (all (== ExitSuccess)) (mapM (runStaticTest src opt) $ take se [0..])
     (b2,b3) <- liftM (\(a,b) -> (a == ExitSuccess, b == ExitSuccess)) $ runtimeSrcTest src opt
     return (b1,b2,b3)
@@ -94,18 +117,18 @@ runStaticTest src opt n = do
         where makeCmd cxx = compilerCmd cxx src ++ unwords opt ++ " -DYATS_STATIC_ERROR=" ++ show n ++ " 2> /dev/null"
 
 
-checkError :: (Bool, Bool, Bool) -> IO ()
-checkError (True, True, True   ) = return ()
-checkError (False, _ ,   _     ) = error "YATS test failed: STATIC error!"
-checkError (True, False, _     ) = error "YATS test failed: compile-time error!"
-checkError (True, True , False ) = error "YATS test failed: run-time error!"
+checkError :: (Bool, Bool, Bool) -> IO Bool
+checkError (True, True, True   ) = return True
+checkError (False, _ ,   _     ) = putStrLn ( blue  ++ bold ++ "Test failed: static assert error!" ++ reset ) >> return False
+checkError (True, False, _     ) = putStrLn ( green ++ bold ++ "Test failed: compiler error!"      ++ reset ) >> return False
+checkError (True, True , False ) = putStrLn ( red   ++ bold ++ "Test failed: run-time error!"      ++ reset ) >> return False
 
 
 runBinary :: FilePath -> IO ExitCode
-runBinary name = system $ case () of
+runBinary name = system (case () of
                           _ | "./" `isPrefixOf` name -> name
                             | "/" `isPrefixOf` name -> name
-                            | otherwise  -> "./" ++ name
+                            | otherwise  -> "./" ++ name ++ " -v")
 
 
 countStaticErrors :: Source -> IO Int

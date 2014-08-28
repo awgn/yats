@@ -43,7 +43,7 @@ data Compiler = Gcc | Clang deriving (Show, Eq, Ord)
 
 
 yatsVersion :: String
-yatsVersion = "runtime v1.1"
+yatsVersion = "runtime v1.2"
 
 magenta = setSGRCode [SetColor Foreground Vivid Magenta]
 blue    = setSGRCode [SetColor Foreground Vivid Blue]
@@ -58,7 +58,7 @@ main :: IO ()
 main = do
     args <- getArgs
     if null args
-        then putStrLn "yats: binary1 binary2 source1.cpp [source2.cpp...] [-comp_opt -comp_opt2... ]"
+        then putStrLn "yats: test1 [test2 test3.cpp test4.cpp...] [-comp_opt -comp_opt2... ]"
         else runMultipleTests args
 
 

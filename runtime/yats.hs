@@ -58,6 +58,9 @@ runMultipleTests xs = do
     let srcs = filter isCppSource xs
     let bins = filter isBinary xs
     let opts = getOption xs
+    putStrLn $ "compiler options : " ++ show opts
+    putStrLn $ "source code tests: " ++ show srcs
+    putStrLn $ "binary tests     : " ++ show bins
     forM_ bins $ runYatsBinTests >=> checkError
     forM_ srcs $ runYatsSrcTests opts >=> checkError
 
@@ -102,7 +105,7 @@ runBinary :: FilePath -> IO ExitCode
 runBinary name = system $ case () of
                           _ | "./" `isPrefixOf` name -> name
                             | "/" `isPrefixOf` name -> name
-                            | otherwise  -> ("./" ++ name)
+                            | otherwise  -> "./" ++ name
 
 
 countStaticErrors :: Source -> IO Int
@@ -122,7 +125,7 @@ getCompilerExe Clang = "/usr/bin/clang++"
 
 getCompilerOpt :: Compiler -> [String]
 getCompilerOpt Gcc   =  [ "-std=c++11", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" ]
-getCompilerOpt Clang =  [ "-std=c++11", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" , "-Wno-unneeded-internal-declaration"]
+getCompilerOpt Clang =  [ "-std=c++1y", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-Wextra", "-Wno-unused-parameter" , "-Wno-unneeded-internal-declaration"]
 
 
 compilerCmd :: Compiler -> String -> String
@@ -142,5 +145,8 @@ isCppSource name = any (`isSuffixOf` name) [".cpp", ".CPP", ".cxx", ".cc"]
 
 
 isBinary :: FilePath -> Bool
-isBinary name = unsafePerformIO $ liftM2 (&&) (doesFileExist name) (getFileStatus name >>= \status -> return $ intersectFileModes (fileMode status) ownerExecuteMode == ownerExecuteMode)
+isBinary name = unsafePerformIO $
+    doesFileExist name >>= \b ->
+        if b then getFileStatus name >>= \status -> return $ intersectFileModes (fileMode status) ownerExecuteMode == ownerExecuteMode
+             else return False
 

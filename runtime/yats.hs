@@ -16,6 +16,9 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 -- YATS: Yet Another Test Suite: Runtime
+--
+
+{-# LANGUAGE TupleSections #-}
 
 module Main where
 
@@ -23,6 +26,8 @@ import System.Environment(getArgs)
 import System.Process
 import System.Exit
 import System.Posix.Files
+import System.IO.Unsafe
+import System.Directory
 
 import Control.Monad
 
@@ -32,57 +37,82 @@ import Data.Char
 type Option = String
 type Source = String
 
-data Compiler = Gcc | Clang 
-                    deriving (Show, Eq, Ord)
+data Compiler = Gcc | Clang deriving (Show, Eq, Ord)
+
 
 yatsVersion :: String
-yatsVersion = "runtime v1.0" 
+yatsVersion = "runtime v1.1"
 
 
 main :: IO ()
 main = do
     args <- getArgs
-    if null (getSource args) 
-        then putStrLn "yats: source-test.cpp [source-test2.cpp...] [-comp_opt -comp_opt2... ]"
-        else void (runMultipleTests args)
+    if null args
+        then putStrLn "yats: binary1 binary2 source1.cpp [source2.cpp...] [-comp_opt -comp_opt2... ]"
+        else runMultipleTests args >> putStrLn "All tests passed."
 
 
-runMultipleTests :: [String] -> IO [(Bool,Bool)]
-runMultipleTests xs = do 
+runMultipleTests :: [String] -> IO ()
+runMultipleTests xs = do
     putStrLn $ "YATS " ++ yatsVersion
-    let srcs = getSource xs
-    let opt  = getOption xs
-    mapM (runYatsTests opt) srcs
+    let srcs = filter isCppSource xs
+    let bins = filter isBinary xs
+    let opts = getOption xs
+    forM_ bins $ runYatsBinTests >=> checkError
+    forM_ srcs $ runYatsSrcTests opts >=> checkError
 
 
-runYatsTests :: [Option] -> Source -> IO (Bool,Bool)
-runYatsTests opt src = do
+runYatsBinTests :: FilePath -> IO (Bool, Bool, Bool)
+runYatsBinTests bin = do
+    putStrLn $ "Running " ++ bin ++ "..."
+    liftM (True, True,) $ liftM (==ExitSuccess) (runBinary bin)
+
+
+runYatsSrcTests :: [Option] -> Source -> IO (Bool,Bool,Bool)
+runYatsSrcTests opt src = do
     se <- countStaticErrors src
-    putStrLn $ "Running " ++ show se ++ " static checks on " ++ src ++ "."
-    liftM2 (,) (liftM (all (== ExitSuccess)) (mapM (runStaticTest src opt) $ take se [0..]))  
-               (liftM (==ExitSuccess) (runtimeTest src opt))
+    putStrLn $ "Running " ++ show se ++ " static checks on " ++ src ++ "..."
+    b1 <- liftM (all (== ExitSuccess)) (mapM (runStaticTest src opt) $ take se [0..])
+    (b2,b3) <- liftM (\(a,b) -> (a == ExitSuccess, b == ExitSuccess)) $ runtimeSrcTest src opt
+    return (b1,b2,b3)
 
 
-runtimeTest:: Source -> [Option] -> IO ExitCode
-runtimeTest src opt = liftM makeCmd getCompiler >>= system >> system ("./" ++ src ++ ".out") 
-                        where makeCmd cxx = compilerCmd cxx src ++ unwords opt ++ " 2> /dev/null" 
+runtimeSrcTest:: Source -> [Option] -> IO (ExitCode, ExitCode)
+runtimeSrcTest src opt = liftM makeCmd getCompiler >>= \cmd -> liftM2 (,) (system cmd) (runBinary (src ++ ".out"))
+    where makeCmd cxx = compilerCmd cxx src ++ unwords opt ++ " 2> /dev/null"
 
 
 runStaticTest :: Source -> [Option] -> Int -> IO ExitCode
 runStaticTest src opt n = do
-    r <- liftM makeCmd getCompiler >>= system 
-    if r == ExitSuccess 
-      then system $ "./" ++ src ++ ".out" 
+    r <- liftM makeCmd getCompiler >>= system
+    if r == ExitSuccess
+      then runBinary $ src ++ ".out"
       else return ExitSuccess
-        where makeCmd cxx = compilerCmd cxx src ++ unwords opt ++ " -DYATS_STATIC_ERROR=" ++ show n ++ " 2> /dev/null" 
+        where makeCmd cxx = compilerCmd cxx src ++ unwords opt ++ " -DYATS_STATIC_ERROR=" ++ show n ++ " 2> /dev/null"
+
+
+checkError :: (Bool, Bool, Bool) -> IO ()
+checkError (True, True, True   ) = return ()
+checkError (False, _ ,   _     ) = error "YATS test failed: STATIC error!"
+checkError (True, False, _     ) = error "YATS test failed: compile-time error!"
+checkError (True, True , False ) = error "YATS test failed: run-time error!"
+
+
+runBinary :: FilePath -> IO ExitCode
+runBinary name = system $ case () of
+                          _ | "./" `isPrefixOf` name -> name
+                            | "/" `isPrefixOf` name -> name
+                            | otherwise  -> ("./" ++ name)
 
 
 countStaticErrors :: Source -> IO Int
-countStaticErrors file = liftM (length . filter (beginWith "StaticError") . lines) $ readFile file 
+countStaticErrors file =
+    liftM (length . filter (beginWith "StaticError") . lines) $ readFile file
 
 
 getCompiler :: IO Compiler
-getCompiler =  fileExist "/usr/bin/g++" >>= (\b -> return $ if b then Gcc else Clang)
+getCompiler =
+    fileExist "/usr/bin/g++" >>= (\b -> return $ if b then Gcc else Clang)
 
 
 getCompilerExe :: Compiler -> String
@@ -96,22 +126,21 @@ getCompilerOpt Clang =  [ "-std=c++11", "-O0", "-D_GLIBCXX_DEBUG", "-Wall", "-We
 
 
 compilerCmd :: Compiler -> String -> String
-compilerCmd cxx src = getCompilerExe cxx ++ " " ++ unwords (getCompilerOpt cxx) ++ " " ++ src ++ " -o " ++ src ++ ".out "
-                                    
+compilerCmd cxx src = getCompilerExe cxx ++ " " ++ unwords (getCompilerOpt cxx) ++ " " ++ src ++ " -o " ++ src ++ ".out"
+
 
 beginWith :: String -> String -> Bool
 beginWith ys xs = ys `isPrefixOf` dropWhile isSpace xs
 
 
-getSource :: [String] -> [String]
-getSource = filter isCppSource
-
-
 getOption :: [String] -> [String]
-getOption = filter (not . isCppSource)
-                                                                    
+getOption = filter (not . isBinary) . filter (not . isCppSource)
+
 
 isCppSource :: String -> Bool
-isCppSource name =  any id $ map (`isSuffixOf` name) [".cpp", ".CPP", ".cxx" ".cc"] 
+isCppSource name = any (`isSuffixOf` name) [".cpp", ".CPP", ".cxx", ".cc"]
 
+
+isBinary :: FilePath -> Bool
+isBinary name = unsafePerformIO $ liftM2 (&&) (doesFileExist name) (getFileStatus name >>= \status -> return $ intersectFileModes (fileMode status) ownerExecuteMode == ownerExecuteMode)
 

@@ -18,5 +18,6 @@ Executable yats
                         directory >= 1.1,
                         process >= 1.1,
                         unix >= 2.0,
-                        ansi-terminal >= 0.5
+                        ansi-terminal >= 0.5,
+                        cmdargs >= 0.10
     default-language:   Haskell2010

@@ -19,16 +19,18 @@
 --
 
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 module Main where
 
-import System.Environment(getArgs)
+import System.Environment(getArgs, withArgs)
 import System.Process
 import System.Exit
 import System.Posix.Files
 import System.IO.Unsafe
 import System.Directory
 import System.Console.ANSI
+import System.Console.CmdArgs
 
 import Control.Monad
 
@@ -36,11 +38,24 @@ import Data.List
 import Data.Char
 import Data.Maybe
 
-type Option = String
+type CompOpt = String
 type Source = String
 
 data Compiler = Gcc | Clang deriving (Show, Eq, Ord)
 
+data Options = Options
+               {
+                    verbose :: Bool,
+                    others  :: [String]
+
+               } deriving (Data, Typeable, Show)
+
+options :: Mode (CmdArgs Options)
+options = cmdArgsMode $ Options
+          {
+            verbose = False  &= help "verbose",
+            others = []      &= args
+          } &= summary ("yats " ++ yatsVersion ++ ". Usage: yats [OPTIONS] -- files... [compiler OPT]") &= program "yats"
 
 yatsVersion :: String
 yatsVersion = "runtime v1.2"
@@ -56,26 +71,25 @@ reset   = setSGRCode []
 
 main :: IO ()
 main = do
-    args <- getArgs
-    if null args
-        then putStrLn "yats: test1 [test2 test3.cpp test4.cpp...] [-comp_opt -comp_opt2... ]"
-        else runMultipleTests args
+    opts <- cmdArgsRun options
+    when (null $ others opts) $ withArgs ["--help"] $ void (cmdArgsRun options)
+    runMultipleTests opts
 
 
-runMultipleTests :: [String] -> IO ()
-runMultipleTests xs = do
-    putStrLn $ "YATS " ++ yatsVersion
+runMultipleTests :: Options -> IO ()
+runMultipleTests opt  = do
+    putStrLn $ bold ++ "YATS " ++ yatsVersion ++ reset
 
-    let srcs = filter isCppSource xs
-    let bins = filter isBinary xs
-    let opts = getOption xs
+    let srcs = filter isCppSource (others opt)
+    let bins = filter isBinary (others opt)
+    let copt = getOption (others opt)
 
-    putStrLn $ "compiler options : " ++ show opts
+    putStrLn $ "compiler options : " ++ show copt
     putStrLn $ "source code tests: " ++ show srcs
     putStrLn $ "binary tests     : " ++ show bins
 
-    t1 <- forM bins $ runYatsBinTests >=> checkError
-    t2 <- forM srcs $ runYatsSrcTests opts >=> checkError
+    t1 <- forM bins $ runYatsBinTests opt >=> checkError
+    t2 <- forM srcs $ runYatsSrcTests opt copt >=> checkError
 
     let total = length t1 + length t2
 
@@ -88,33 +102,33 @@ runMultipleTests xs = do
                 mapM_ (\name -> putStrLn $ "    " ++ name ++ " failed!") $ mapMaybe (\(e,n) -> if not e then Just n else Nothing) (zip (t1 ++ t2) (bins ++ srcs))
 
 
-runYatsBinTests :: FilePath -> IO (Bool, Bool, Bool)
-runYatsBinTests bin = do
+runYatsBinTests :: Options -> FilePath -> IO (Bool, Bool, Bool)
+runYatsBinTests opt bin = do
     putStrLn $ bold ++ "Running " ++ bin ++ "..." ++ reset
-    liftM (True, True,) $ liftM (==ExitSuccess) (runBinary bin)
+    liftM (True, True,) $ liftM (==ExitSuccess) (runBinary opt bin)
 
 
-runYatsSrcTests :: [Option] -> Source -> IO (Bool,Bool,Bool)
-runYatsSrcTests opt src = do
+runYatsSrcTests :: Options -> [CompOpt] -> Source -> IO (Bool,Bool,Bool)
+runYatsSrcTests opt copt src = do
     se <- countStaticErrors src
     putStrLn $ bold ++ "Running " ++ show se ++ " static checks on " ++ src ++ "..." ++ reset
-    b1 <- liftM (all (== ExitSuccess)) (mapM (runStaticTest src opt) $ take se [0..])
-    (b2,b3) <- liftM (\(a,b) -> (a == ExitSuccess, b == ExitSuccess)) $ runtimeSrcTest src opt
+    b1 <- liftM (all (== ExitSuccess)) (mapM (runStaticTest opt src copt) $ take se [0..])
+    (b2,b3) <- liftM (\(a,b) -> (a == ExitSuccess, b == ExitSuccess)) $ runtimeSrcTest opt src copt
     return (b1,b2,b3)
 
 
-runtimeSrcTest:: Source -> [Option] -> IO (ExitCode, ExitCode)
-runtimeSrcTest src opt = liftM makeCmd getCompiler >>= \cmd -> liftM2 (,) (system cmd) (runBinary (src ++ ".out"))
-    where makeCmd cxx = compilerCmd cxx src ++ unwords opt ++ " 2> /dev/null"
+runtimeSrcTest:: Options -> Source -> [CompOpt] -> IO (ExitCode, ExitCode)
+runtimeSrcTest opt src copt = liftM makeCmd getCompiler >>= \cmd -> liftM2 (,) (system cmd) (runBinary opt (src ++ ".out"))
+    where makeCmd cxx = compilerCmd cxx src ++ unwords copt ++ " 2> /dev/null"
 
 
-runStaticTest :: Source -> [Option] -> Int -> IO ExitCode
-runStaticTest src opt n = do
+runStaticTest :: Options -> Source -> [CompOpt] -> Int -> IO ExitCode
+runStaticTest opt src copt n = do
     r <- liftM makeCmd getCompiler >>= system
     if r == ExitSuccess
-      then runBinary $ src ++ ".out"
+      then runBinary opt $ src ++ ".out"
       else return ExitSuccess
-        where makeCmd cxx = compilerCmd cxx src ++ unwords opt ++ " -DYATS_STATIC_ERROR=" ++ show n ++ " 2> /dev/null"
+        where makeCmd cxx = compilerCmd cxx src ++ unwords copt ++ " -DYATS_STATIC_ERROR=" ++ show n ++ " 2> /dev/null"
 
 
 checkError :: (Bool, Bool, Bool) -> IO Bool
@@ -124,12 +138,13 @@ checkError (True, False, _     ) = putStrLn ( green ++ bold ++ "Test failed: com
 checkError (True, True , False ) = putStrLn ( red   ++ bold ++ "Test failed: run-time error!"      ++ reset ) >> return False
 
 
-runBinary :: FilePath -> IO ExitCode
-runBinary name = system (case () of
-                          _ | "./" `isPrefixOf` name -> name
-                            | "/" `isPrefixOf` name -> name
-                            | otherwise  -> "./" ++ name ++ " -v")
-
+runBinary :: Options -> FilePath -> IO ExitCode
+runBinary opt name =
+    system (case () of
+                _ | "./" `isPrefixOf` name -> name
+                  | "/" `isPrefixOf` name -> name
+                  | otherwise  -> "./" ++ name ++ optarg)
+    where optarg = if (verbose opt) then " -v" else ""
 
 countStaticErrors :: Source -> IO Int
 countStaticErrors file =

@@ -119,7 +119,7 @@ runYatsSrcTests opt copt src = do
 
 runtimeSrcTest:: Options -> Source -> [CompOpt] -> IO (ExitCode, ExitCode)
 runtimeSrcTest opt src copt = liftM makeCmd getCompiler >>= \cmd -> liftM2 (,) (system cmd) (runBinary opt (src ++ ".out"))
-    where makeCmd cxx = compilerCmd cxx src ++ unwords copt ++ " 2> /dev/null"
+    where makeCmd cxx = compilerCmd cxx src ++ " " ++ unwords copt ++ " 2> /dev/null"
 
 
 runStaticTest :: Options -> Source -> [CompOpt] -> Int -> IO ExitCode
@@ -128,7 +128,7 @@ runStaticTest opt src copt n = do
     if r == ExitSuccess
       then runBinary opt $ src ++ ".out"
       else return ExitSuccess
-        where makeCmd cxx = compilerCmd cxx src ++ unwords copt ++ " -DYATS_STATIC_ERROR=" ++ show n ++ " 2> /dev/null"
+        where makeCmd cxx = compilerCmd cxx src ++ " " ++ unwords copt ++ " -DYATS_STATIC_ERROR=" ++ show n ++ " 2> /dev/null"
 
 
 checkError :: (Bool, Bool, Bool) -> IO Bool

@@ -500,29 +500,40 @@ inline namespace yats
             run_test.insert(*arg);
         }
 
-        size_t tot_task = 0;
+        size_t tot_ctx = 0, tot_task = 0;
 
         for(auto & ctx : context::instance())
         {
-            if (!run_ctx.empty() &&
-                run_ctx.find(ctx.first) == run_ctx.end())
+            if (!run_ctx.empty() && run_ctx.find(ctx.first) == run_ctx.end())
                 continue;
-            tot_task += ctx.second->task_list_.size();
+
+            tot_ctx++;
+            tot_task += [&]() -> long unsigned int {
+
+                        if (run_test.empty())
+                            return ctx.second->task_list_.size();
+
+                        else return std::count_if (std::begin(ctx.second->task_list_),
+                                       std::end(ctx.second->task_list_),
+                                       [&] (std::pair<context::Task,std::string> const &elem) -> bool {
+
+                                            return std::find(std::begin(run_test), std::end(run_test), elem.second) != std::end(run_test);
+                                       });
+                        }();
         }
 
         unsigned int run = 0, ok = 0;
 
         std::ofstream ferr("/tmp/" + std::string(argv[0]));
 
-        std::cout << "Loading " << tot_task << " tests in " << context::instance().size() << " contexts." << std::endl;
+        std::cout << "Loading " << tot_task << " tests in " << tot_ctx << " contexts." << std::endl;
 
         // iterate over contexts:
         //
 
         for(auto & c : context::instance())
         {
-            if (!run_ctx.empty() &&
-                run_ctx.find(c.first) == run_ctx.end())
+            if (!run_ctx.empty() && run_ctx.find(c.first) == run_ctx.end())
                 continue;
 
             if (verbose)

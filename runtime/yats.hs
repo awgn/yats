@@ -201,7 +201,7 @@ beginWith ys xs = ys `isPrefixOf` dropWhile isSpace xs
 
 
 getOption :: [String] -> [String]
-getOption = filter (not . isBinary) . filter (not . isCppSource) . filter ("-" `isPrefixOf`)
+getOption = filter (not . isBinary) . filter (not . isCppSource)
 
 
 isCppSource :: String -> Bool

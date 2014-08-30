@@ -38,8 +38,11 @@ import Data.List
 import Data.Char
 import Data.Maybe
 
-type CompOpt = String
-type Source = String
+type CompOpt     = String
+type Source      = String
+type TestVerdict = (ExitCode, ExitCode, ExitCode)
+
+verdictOk = (ExitSuccess, ExitSuccess, ExitSuccess)
 
 data Compiler = Gcc | Clang deriving (Show, Eq, Ord)
 
@@ -88,33 +91,36 @@ runMultipleTests opt  = do
     putStrLn $ "source code tests: " ++ show srcs
     putStrLn $ "binary tests     : " ++ show bins
 
-    t1 <- forM bins $ runYatsBinTests opt >=> checkError
-    t2 <- forM srcs $ runYatsSrcTests opt copt >=> checkError
+    t1 <- forM bins $ runYatsBinTests opt >=> checkVerdict
+    t2 <- forM srcs $ runYatsSrcTests opt copt >=> checkVerdict
 
     let total = length t1 + length t2
 
-    let p1 = foldr (\b acc -> if b then acc + 1 else acc) 0 t1
-    let p2 = foldr (\b acc -> if b then acc + 1 else acc) 0 t2
+    let p1 = foldr (\b acc -> if b == verdictOk then acc + 1 else acc) 0 t1
+    let p2 = foldr (\b acc -> if b == verdictOk then acc + 1 else acc) 0 t2
 
     if (p1+p2) == total
         then putStrLn $ bold ++ "All tests successfully passed." ++ reset
         else do putStrLn $ bold ++ show (p1+p2) ++ " tests passed out of " ++ show total  ++ ":" ++ reset
-                mapM_ (\name -> putStrLn $ "    " ++ name ++ " failed!") $ mapMaybe (\(e,n) -> if not e then Just n else Nothing) (zip (t1 ++ t2) (bins ++ srcs))
+                mapM_ (\msg -> putStrLn $ "    " ++ msg) $
+                    mapMaybe (\(e,n) -> if e /= verdictOk then Just (n ++ ": " ++ getErrorString e) else Nothing) (zip (t1 ++ t2) (bins ++ srcs))
 
 
-runYatsBinTests :: Options -> FilePath -> IO (Bool, Bool, Bool)
+runYatsBinTests :: Options -> FilePath -> IO TestVerdict
 runYatsBinTests opt bin = do
     putStrLn $ bold ++ "Running " ++ bin ++ "..." ++ reset
-    liftM (True, True,) $ liftM (==ExitSuccess) (runBinary opt bin)
+    liftM (ExitSuccess, ExitSuccess,) $ runBinary opt bin
 
 
-runYatsSrcTests :: Options -> [CompOpt] -> Source -> IO (Bool,Bool,Bool)
+runYatsSrcTests :: Options -> [CompOpt] -> Source -> IO TestVerdict
 runYatsSrcTests opt copt src = do
     se <- countStaticErrors src
-    putStrLn $ bold ++ "Running " ++ show se ++ " static checks on " ++ src ++ "..." ++ reset
-    b1 <- liftM (all (== ExitSuccess)) (mapM (runStaticTest opt src copt) $ take se [0..])
-    (b2,b3) <- liftM (\(a,b) -> (a == ExitSuccess, b == ExitSuccess)) $ runtimeSrcTest opt src copt
-    return (b1,b2,b3)
+    if se > 0
+        then putStrLn $ bold ++ "Running " ++ show se ++ " static assert tests on " ++ src ++ "..." ++ reset
+        else putStrLn $ bold ++ "Compiling " ++ src ++ "..." ++ reset
+    b1 <- liftM (all (== ExitSuccess)) $ mapM (runStaticTest opt src copt) $ take se [0..]
+    (b2,b3) <- runtimeSrcTest opt src copt
+    return (if b1 then ExitSuccess else ExitFailure 1,b2,b3)
 
 
 runtimeSrcTest:: Options -> Source -> [CompOpt] -> IO (ExitCode, ExitCode)
@@ -131,11 +137,18 @@ runStaticTest opt src copt n = do
         where makeCmd cxx = compilerCmd cxx src ++ " " ++ unwords copt ++ " -DYATS_STATIC_ERROR=" ++ show n ++ " 2> /dev/null"
 
 
-checkError :: (Bool, Bool, Bool) -> IO Bool
-checkError (True, True, True   ) = return True
-checkError (False, _ ,   _     ) = putStrLn ( blue  ++ bold ++ "Test failed: static assert error!" ++ reset ) >> return False
-checkError (True, False, _     ) = putStrLn ( green ++ bold ++ "Test failed: compiler error!"      ++ reset ) >> return False
-checkError (True, True , False ) = putStrLn ( red   ++ bold ++ "Test failed: run-time error!"      ++ reset ) >> return False
+checkVerdict :: TestVerdict -> IO TestVerdict
+checkVerdict ret@(ExitSuccess, ExitSuccess, ExitSuccess)   = return ret
+checkVerdict ret@(ExitFailure _ , _ ,  _     )             = putStrLn ( blue  ++ bold ++ "Test failed: " ++ getErrorString ret ++ reset ) >> return ret
+checkVerdict ret@(ExitSuccess, ExitFailure _ , _     )     = putStrLn ( green ++ bold ++ "Test failed: " ++ getErrorString ret ++ reset ) >> return ret
+checkVerdict ret@(ExitSuccess, ExitSuccess, ExitFailure _) = putStrLn ( red   ++ bold ++ "Test failed: " ++ getErrorString ret ++ reset ) >> return ret
+
+
+getErrorString :: TestVerdict -> String
+getErrorString (ExitSuccess, ExitSuccess, ExitSuccess)      = "OK"
+getErrorString (ExitFailure n , _ , _)                      = "static assert error [exit code = " ++ show n ++ "]"
+getErrorString (ExitSuccess   , ExitFailure n , _ )         = "compiler error [exit code = " ++ show n ++ "]"
+getErrorString (ExitSuccess   , ExitSuccess, ExitFailure n) = "runtime error [exit code = " ++ show n ++ "]"
 
 
 runBinary :: Options -> FilePath -> IO ExitCode
@@ -145,6 +158,7 @@ runBinary opt name =
                   | "/" `isPrefixOf` name -> name
                   | otherwise  -> "./" ++ name ++ optarg)
     where optarg = if (verbose opt) then " -v" else ""
+
 
 countStaticErrors :: Source -> IO Int
 countStaticErrors file =

@@ -249,7 +249,7 @@ inline namespace yats
         }
     };
 
-    std::string
+    inline std::string
     type_name(nothing)
     {
         return "no";
@@ -263,7 +263,7 @@ inline namespace yats
         }
     };
 
-    std::string
+    inline std::string
     type_name(anything)
     {
         return "any";
@@ -271,7 +271,7 @@ inline namespace yats
 
     ////////////////////////////////////////////// C++ demangling tool:
 
-    static inline std::string
+    inline std::string
     cxa_demangle(const char *name)
     {
         int status;
@@ -282,7 +282,7 @@ inline namespace yats
     }
 
     template <typename Tp>
-    std::string
+    inline std::string
     type_name(const Tp &t)
     {
         return cxa_demangle(typeid(t).name());
@@ -426,24 +426,30 @@ inline namespace yats
             return std::to_string(static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(d).count())/1000000.0) + " s";
     }
 
+    ////////////////////////////////////////////// singleton:
+
+    struct singleton
+    {
+        static uint32_t &
+        assert_counter()
+        {
+            static uint32_t c;
+            return c;
+        }
+
+        static const std::string &
+        program_name(std::string n = "")
+        {
+            static std::string name(n);
+            return name;
+        }
+    };
+
     ////////////////////////////////////////////// run tests:
-
-    uint32_t &
-    assert_counter()
-    {
-        static uint32_t c;
-        return c;
-    }
-
-    static std::string program_name(std::string n = "")
-    {
-        static std::string name(n);
-        return name;
-    }
 
     static void sig_handler(int n)
     {
-        std::ofstream ferr("/tmp/" + program_name(), std::fstream::app);
+        std::ofstream ferr("/tmp/" + singleton::program_name(), std::fstream::app);
         ferr << "SIGNUM " << n << std::endl;
         _Exit (-n);
     }
@@ -458,7 +464,7 @@ inline namespace yats
 
         std::set<std::string> run_ctx, run_test;
 
-        program_name(argv[0]);
+        singleton::program_name(argv[0]);
 
         for(auto arg = argv + 1; argv && (arg != argv + argc); ++arg)
         {
@@ -554,7 +560,7 @@ inline namespace yats
 
         unsigned int run = 0, ok = 0;
 
-        std::ofstream ferr("/tmp/" + program_name());
+        std::ofstream ferr("/tmp/" + singleton::program_name());
 
         std::cout << "Loading " << tot_task << " tests in " << tot_ctx << " contexts." << std::endl;
 
@@ -608,19 +614,18 @@ inline namespace yats
                 }
                 catch(std::exception &e)
                 {
-                    std::ostringstream msg;
                     err = true;
-                    format(msg, "test ", c.first, "::" , t.second , ":\n", "    -> Unexpected exception: '", e.what(), "' error.\n");
-                    std::cerr << msg.str();
-                    ferr      << msg.str();
+                    auto msg = make_string("test ", c.first, "::" , t.second , ":\n", "    -> Unexpected exception: '", e.what(), "' error.\n");
+                    std::cerr << msg;
+                    ferr      << msg;
                 }
                 catch(...)
                 {
-                    std::ostringstream msg;
                     err = true;
-                    format(msg, "test ", c.first, "::" , t.second , ":\n", "    -> Unknown exception.\n");
-                    std::cerr << msg.str();
-                    ferr      << msg.str();
+
+                    auto msg = make_string("test ", c.first, "::" , t.second , ":\n", "    -> Unknown exception.\n");
+                    std::cerr << msg;
+                    ferr      << msg;
                 }
 
                 if (err && exit_immediatly)
@@ -640,7 +645,7 @@ inline namespace yats
             }
         }
 
-        std::cerr <<  std::endl << (run-ok) << " out of " << run  << " tests failed. " << assert_counter() << " assertions passed." << std::endl;
+        std::cerr <<  std::endl << (run-ok) << " out of " << run  << " tests failed. " << singleton::assert_counter() << " assertions passed." << std::endl;
 
         return ok == run ? EXIT_SUCCESS : EXIT_FAILURE;
     }
@@ -732,7 +737,7 @@ inline namespace yats
 
     ////////////////////////////////////////////// pretty printer values:
 
-    std::string inline pretty_value(bool v)
+    static inline std::string pretty_value(bool v)
     {
         std::ostringstream o;
         o << std::boolalpha << v;
@@ -981,7 +986,7 @@ inline namespace yats
                              "    -> predicate ", pred.str(), " failed: got ", pretty_value(value)));
         }
 
-        assert_counter()++;
+        singleton::assert_counter()++;
     }
 
     template <typename T, typename E>
@@ -999,7 +1004,7 @@ inline namespace yats
                                              " exception caught with reason \"",
                                              e.what(),
                                              "\" != \"", obj.what(), "\"!"));
-            assert_counter()++;
+            singleton::assert_counter()++;
             return;
         }
         catch(std::exception &e)
@@ -1010,7 +1015,7 @@ inline namespace yats
                                             " exception expected. Got ",
                                             yats::type_name(e),
                                             " (\"", e.what(), "\")!"));
-            assert_counter()++;
+            singleton::assert_counter()++;
             return;
         }
         catch(...)
@@ -1019,7 +1024,7 @@ inline namespace yats
                 throw yats_error(make_string(YATS_HEADER(ctx, test, file, line),
                                             "    -> ", yats::type_name(obj),
                                             " exception expected: got unknown exception!"));
-            assert_counter()++;
+            singleton::assert_counter()++;
             return;
         }
 
@@ -1028,9 +1033,8 @@ inline namespace yats
                                         "    -> ", yats::type_name(obj),
                                         " exception expected!"));
 
-        assert_counter()++;
+        singleton::assert_counter()++;
     }
-
 }
 
 #endif /* _YATS_HPP_ */

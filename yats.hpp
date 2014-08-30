@@ -379,7 +379,7 @@ inline namespace yats
     {
         std::cout << "Yats usage: " << name << " [options] [test...]" << std::endl;
         std::cout << "Options:\n";
-        std::cout << "  -e, --exit-immediatly   On error exit.\n";
+        std::cout << "  -e, --exit-immediately  On error exit.\n";
         std::cout << "  -c, --context context   Run tests from the given context.\n";
         std::cout << "  -v, --verbose           Verbose mode.\n";
         std::cout << "  -r, --run int           Number of run per Random test (1000 default).\n";
@@ -447,12 +447,13 @@ inline namespace yats
         for(auto arg = argv + 1; argv && (arg != argv + argc); ++arg)
         {
             if (strcmp(*arg, "-h") == 0 ||
+                strcmp(*arg, "-?") == 0 ||
                 strcmp(*arg, "--help") == 0) {
                 usage(argv[0]);
             }
 
             if (strcmp(*arg, "-e") == 0 ||
-                strcmp(*arg, "--exit-immediatly") == 0) {
+                strcmp(*arg, "--exit-immediately") == 0) {
                 exit_immediatly = true;
                 continue;
             }
@@ -484,7 +485,7 @@ inline namespace yats
 
                 for(auto & c : context::instance())
                 {
-                    std::cout << "context " << c.first << ": ";
+                    std::cout << "Context " << c.first << ": ";
                     int n = 1;
                     for(auto & t : c.second->task_list_)
                     {
@@ -508,7 +509,7 @@ inline namespace yats
                 continue;
 
             tot_ctx++;
-            tot_task += [&]() -> long unsigned int {
+            tot_task += [&]() -> size_t {
 
                         if (run_test.empty())
                             return ctx.second->task_list_.size();
@@ -537,7 +538,7 @@ inline namespace yats
                 continue;
 
             if (verbose)
-                std::cout << "context " << c.first << ":\n";
+                std::cout << "Context " << c.first << ":\n";
 
             // run setup:
             //
@@ -574,35 +575,44 @@ inline namespace yats
                 {
                     err = true;
                     std::cerr << e.what() << std::endl;
-                    ferr << e.what() << std::endl;
+                    ferr      << e.what() << std::endl;
                 }
                 catch(std::exception &e)
                 {
-                    err = true;
                     std::ostringstream msg;
+                    err = true;
                     format(msg, "test ", c.first, "::" , t.second , ":\n", "    -> Unexpected exception: '", e.what(), "' error.\n");
-                    std::cerr << msg;
-                    ferr << msg;
+                    std::cerr << msg.str();
+                    ferr      << msg.str();
+                }
+                catch(...)
+                {
+                    std::ostringstream msg;
+                    err = true;
+                    format(msg, "test ", c.first, "::" , t.second , ":\n", "    -> Unknown exception.\n");
+                    std::cerr << msg.str();
+                    ferr      << msg.str();
                 }
 
                 if (err && exit_immediatly)
                     _Exit(1);
 
                 if (verbose)
-                    std::cout << "[" <<
-                        duration_to_string(std::chrono::system_clock::now() - start) << "]" << std::endl;
+                    std::cout << "[" << duration_to_string(std::chrono::system_clock::now() - start) << "]" << std::endl;
 
             }
 
             // run teardown:
             //
+
             for(auto & t : c.second->teardown_)
             {
                 t(0);
             }
         }
 
-        std::cerr << (run-ok) << " out of " << run  << " tests failed. " << assert_counter() << " assertions passed." << std::endl;
+        std::cerr <<  std::endl << (run-ok) << " out of " << run  << " tests failed. " << assert_counter() << " assertions passed." << std::endl;
+
         return ok == run ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 

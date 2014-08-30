@@ -61,7 +61,7 @@ options = cmdArgsMode $ Options
           } &= summary ("yats " ++ yatsVersion ++ ". Usage: yats [OPTIONS] -- files... [compiler OPT]") &= program "yats"
 
 yatsVersion :: String
-yatsVersion = "runtime v1.5"
+yatsVersion = "runtime v1.6"
 
 magenta = setSGRCode [SetColor Foreground Vivid Magenta]
 blue    = setSGRCode [SetColor Foreground Vivid Blue]
@@ -121,10 +121,7 @@ runYatsBinTests opt bin = do
 runYatsSrcTests :: Options -> [CompOpt] -> Source -> IO TestVerdict
 runYatsSrcTests opt copt src = do
     se <- countStaticErrors src
-    putStrLn $ bold ++ (if se > 0
-                        then "Running " ++ show se ++ " static assert tests on " ++ src ++ "..."
-                        else "Compiling " ++ src ++ "...") ++ reset
-    b1 <- liftM (all (== ExitSuccess)) $ mapM (runStaticTest opt src copt) $ take se [0..]
+    b1 <- liftM (all (== ExitSuccess)) $ mapM (runStaticTest opt src copt se) $ take se [0..]
     (b2,b3) <- runtimeSrcTest opt src copt
     return (if b1 then ExitSuccess else ExitFailure 1,b2,b3)
 
@@ -134,8 +131,9 @@ runtimeSrcTest opt src copt = liftM makeCmd getCompiler >>= \cmd -> liftM2 (,) (
     where makeCmd cxx = compilerCmd cxx src ++ " " ++ unwords copt ++ " 2> /dev/null"
 
 
-runStaticTest :: Options -> Source -> [CompOpt] -> Int -> IO ExitCode
-runStaticTest opt src copt n = do
+runStaticTest :: Options -> Source -> [CompOpt] -> Int ->  Int -> IO ExitCode
+runStaticTest opt src copt total n = do
+    putStrLn $ bold ++ "Running " ++ show (n+1) ++ " out of " ++ show total ++ " static assert tests on " ++ src ++ "..." ++ reset
     r <- liftM makeCmd getCompiler >>= system
     if r == ExitSuccess
       then runBinary opt $ src ++ ".out"

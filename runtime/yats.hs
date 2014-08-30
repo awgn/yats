@@ -61,7 +61,7 @@ options = cmdArgsMode $ Options
           } &= summary ("yats " ++ yatsVersion ++ ". Usage: yats [OPTIONS] -- files... [compiler OPT]") &= program "yats"
 
 yatsVersion :: String
-yatsVersion = "runtime v1.2"
+yatsVersion = "runtime v1.3"
 
 magenta = setSGRCode [SetColor Foreground Vivid Magenta]
 blue    = setSGRCode [SetColor Foreground Vivid Blue]
@@ -100,10 +100,16 @@ runMultipleTests opt  = do
     let p2 = foldr (\b acc -> if b == verdictOk then acc + 1 else acc) 0 t2
 
     if (p1+p2) == total
-        then putStrLn $ bold ++ "All tests successfully passed." ++ reset
-        else do putStrLn $ bold ++ show (p1+p2) ++ " tests passed out of " ++ show total  ++ ":" ++ reset
-                mapM_ (\msg -> putStrLn $ "    " ++ msg) $
-                    mapMaybe (\(e,n) -> if e /= verdictOk then Just (n ++ ": " ++ getErrorString e) else Nothing) (zip (t1 ++ t2) (bins ++ srcs))
+        then putStrLn $ bold ++ "Summary: all tests successfully passed." ++ reset
+        else do putStrLn $ bold ++ "Summary: " ++ show (p1+p2) ++ " tests passed out of " ++ show total  ++ ":" ++ reset
+                mapM_ (\(name, msg) -> do
+                        el <- getExceptions $ "/tmp/" ++ name
+                        putStrLn $ "    " ++ name ++ ": " ++  msg ++
+                            if null el
+                                then "!"
+                                else "\n    -> exceptions: " ++ intercalate "    \n" el
+                      ) $
+                      mapMaybe (\(e,n) -> if e /= verdictOk then Just (n, getErrorString e) else Nothing) (zip (t1 ++ t2) (bins ++ srcs))
 
 
 runYatsBinTests :: Options -> FilePath -> IO TestVerdict
@@ -149,6 +155,12 @@ getErrorString (ExitSuccess, ExitSuccess, ExitSuccess)      = "OK"
 getErrorString (ExitFailure n , _ , _)                      = "static assert error [exit code = " ++ show n ++ "]"
 getErrorString (ExitSuccess   , ExitFailure n , _ )         = "compiler error [exit code = " ++ show n ++ "]"
 getErrorString (ExitSuccess   , ExitSuccess, ExitFailure n) = "runtime error [exit code = " ++ show n ++ "]"
+
+
+getExceptions :: FilePath -> IO [String]
+getExceptions name = doesFileExist name >>= \f ->
+    if f then liftM lines $ readFile name
+         else return []
 
 
 runBinary :: Options -> FilePath -> IO ExitCode

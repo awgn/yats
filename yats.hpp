@@ -225,8 +225,6 @@
 
 inline namespace yats
 {
-    using namespace std::placeholders;
-
     ////////////////////////////////////////////// C++ yats exception:
 
     struct yats_error : public std::runtime_error
@@ -695,7 +693,7 @@ inline namespace yats
             switch(t)
             {
             case type::random:
-                it->second->task_list_.push_back(std::make_pair(std::bind(fun, name, _1), name));
+                it->second->task_list_.push_back(std::make_pair(std::bind(fun, name, std::placeholders::_1), name));
                 break;
             default:
                 throw std::logic_error("yats");
@@ -892,7 +890,7 @@ inline namespace yats
     {                        \
         return predicate<T>("is_" #_name_,  \
                             std::function<bool(const T&)>( \
-                                std::bind(std::_name_<T>(), _1, value)), \
+                                std::bind(std::_name_<T>(), std::placeholders::_1, value)), \
                                 value); \
     }
 
@@ -951,7 +949,7 @@ inline namespace yats
     {
         return predicate<bool>( "is_boolean",
                                 std::function<bool(bool)>(
-                                    std::bind(std::equal_to<bool>(), _1, true)), true);
+                                    std::bind(std::equal_to<bool>(), std::placeholders::_1, true)), true);
     }
 
     inline predicate<bool>
@@ -959,7 +957,7 @@ inline namespace yats
     {
         return predicate<bool>( "is_boolean",
                                 std::function<bool(bool)>(
-                                    std::bind(std::equal_to<bool>(), _1, false)), false);
+                                    std::bind(std::equal_to<bool>(), std::placeholders::_1, false)), false);
     }
 
     ////////////////////////////////////////////// predicate factory:

@@ -78,7 +78,7 @@ Context(good_context)
     Test(test_8)
     {
         int n = 0;
-        AssertNothrow(n++);
+        AssertNoThrow(n++);
     }
 
     Test(test_9)

@@ -87,7 +87,7 @@ Context(bad_context)
 
     Test(test_8)
     {
-        AssertNothrow(throw 0);
+        AssertNoThrow(throw 0);
     }
     Test(test_9)
     {

@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                   yats
-version:                1.3
+version:                1.4
 
 license-file:           LICENSE
 author:                 Nicola Bonelli

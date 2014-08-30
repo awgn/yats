@@ -23,7 +23,7 @@
 
 module Main where
 
-import System.Environment(getArgs, withArgs)
+import System.Environment(withArgs)
 import System.Process
 import System.Exit
 import System.Posix.Files
@@ -61,7 +61,7 @@ options = cmdArgsMode $ Options
           } &= summary ("yats " ++ yatsVersion ++ ". Usage: yats [OPTIONS] -- files... [compiler OPT]") &= program "yats"
 
 yatsVersion :: String
-yatsVersion = "runtime v1.3"
+yatsVersion = "runtime v1.4"
 
 magenta = setSGRCode [SetColor Foreground Vivid Magenta]
 blue    = setSGRCode [SetColor Foreground Vivid Blue]
@@ -121,9 +121,9 @@ runYatsBinTests opt bin = do
 runYatsSrcTests :: Options -> [CompOpt] -> Source -> IO TestVerdict
 runYatsSrcTests opt copt src = do
     se <- countStaticErrors src
-    if se > 0
-        then putStrLn $ bold ++ "Running " ++ show se ++ " static assert tests on " ++ src ++ "..." ++ reset
-        else putStrLn $ bold ++ "Compiling " ++ src ++ "..." ++ reset
+    putStrLn $ bold ++ (if se > 0
+                        then "Running " ++ show se ++ " static assert tests on " ++ src ++ "..."
+                        else "Compiling " ++ src ++ "...") ++ reset
     b1 <- liftM (all (== ExitSuccess)) $ mapM (runStaticTest opt src copt) $ take se [0..]
     (b2,b3) <- runtimeSrcTest opt src copt
     return (if b1 then ExitSuccess else ExitFailure 1,b2,b3)
@@ -169,7 +169,7 @@ runBinary opt name =
                 _ | "./" `isPrefixOf` name -> name
                   | "/" `isPrefixOf` name -> name
                   | otherwise  -> "./" ++ name ++ optarg)
-    where optarg = if (verbose opt) then " -v" else ""
+    where optarg = if verbose opt then " -v" else ""
 
 
 countStaticErrors :: Source -> IO Int

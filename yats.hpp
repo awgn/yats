@@ -29,6 +29,7 @@
 #define _YATS_HPP_
 
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <cstdlib>
 #include <string>
@@ -510,6 +511,9 @@ inline namespace yats
         }
 
         unsigned int run = 0, ok = 0;
+
+        std::ofstream ferr("/tmp/" + std::string(argv[0]));
+
         std::cout << "Loading " << tot_task << " tests in " << context::instance().size() << " contexts." << std::endl;
 
         // iterate over contexts:
@@ -559,12 +563,15 @@ inline namespace yats
                 {
                     err = true;
                     std::cerr << e.what() << std::endl;
+                    ferr << e.what() << std::endl;
                 }
                 catch(std::exception &e)
                 {
                     err = true;
-                    format(std::cerr, "test ", c.first, "::" , t.second , ":\n",
-                           "    -> Unexpected exception: '", e.what(), "' error.\n");
+                    std::ostringstream msg;
+                    format(msg, "test ", c.first, "::" , t.second , ":\n", "    -> Unexpected exception: '", e.what(), "' error.\n");
+                    std::cerr << msg;
+                    ferr << msg;
                 }
 
                 if (err && exit_immediatly)

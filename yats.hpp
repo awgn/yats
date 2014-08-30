@@ -45,6 +45,7 @@
 #include <set>
 #include <random>
 #include <chrono>
+#include <csignal>
 
 #ifdef __GNUC__
 #include <cxxabi.h>
@@ -382,6 +383,7 @@ inline namespace yats
         std::cout << "  -e, --exit-immediately  On error exit.\n";
         std::cout << "  -c, --context context   Run tests from the given context.\n";
         std::cout << "  -v, --verbose           Verbose mode.\n";
+        std::cout << "  -s, --signal            Capture unix signals.\n";
         std::cout << "  -r, --run int           Number of run per Random test (1000 default).\n";
         std::cout << "  -l, --list              Print the list of tests\n";
         std::cout << "  -h, --help              Print this help.\n";
@@ -435,14 +437,30 @@ inline namespace yats
         return c;
     }
 
+    static std::string program_name(std::string n = "")
+    {
+        static std::string name(n);
+        return name;
+    }
+
+    static void sig_handler(int n)
+    {
+        std::ofstream ferr("/tmp/" + program_name(), std::fstream::app);
+        ferr << "SIGNUM " << n << std::endl;
+        _Exit (-n);
+    }
+
     static int run(int argc = 0, char *argv[] = nullptr)
     {
         bool exit_immediatly = false,
              err             = false,
-             verbose         = false;
+             verbose         = false,
+             capture_signal  = false;
         int  repeat_run      = 1000;
 
         std::set<std::string> run_ctx, run_test;
+
+        program_name(argv[0]);
 
         for(auto arg = argv + 1; argv && (arg != argv + argc); ++arg)
         {
@@ -455,6 +473,12 @@ inline namespace yats
             if (strcmp(*arg, "-e") == 0 ||
                 strcmp(*arg, "--exit-immediately") == 0) {
                 exit_immediatly = true;
+                continue;
+            }
+
+            if (strcmp(*arg, "-s") == 0 ||
+                strcmp(*arg, "--signal") == 0) {
+                capture_signal = true;
                 continue;
             }
 
@@ -501,6 +525,13 @@ inline namespace yats
             run_test.insert(*arg);
         }
 
+        std::cout << "YATS: verbose " << std::boolalpha << verbose << ", UNIX signals " << capture_signal << std::endl;
+
+        if (capture_signal) {
+            for(int n = 0; n < 64; n++)
+                signal(n,  sig_handler);
+        }
+
         size_t tot_ctx = 0, tot_task = 0;
 
         for(auto & ctx : context::instance())
@@ -525,7 +556,7 @@ inline namespace yats
 
         unsigned int run = 0, ok = 0;
 
-        std::ofstream ferr("/tmp/" + std::string(argv[0]));
+        std::ofstream ferr("/tmp/" + program_name());
 
         std::cout << "Loading " << tot_task << " tests in " << tot_ctx << " contexts." << std::endl;
 

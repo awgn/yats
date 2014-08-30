@@ -61,7 +61,7 @@ options = cmdArgsMode $ Options
           } &= summary ("yats " ++ yatsVersion ++ ". Usage: yats [OPTIONS] -- files... [compiler OPT]") &= program "yats"
 
 yatsVersion :: String
-yatsVersion = "runtime v1.4"
+yatsVersion = "runtime v1.5"
 
 magenta = setSGRCode [SetColor Foreground Vivid Magenta]
 blue    = setSGRCode [SetColor Foreground Vivid Blue]
@@ -166,10 +166,10 @@ getExceptions name = doesFileExist name >>= \f ->
 runBinary :: Options -> FilePath -> IO ExitCode
 runBinary opt name =
     system (case () of
-                _ | "./" `isPrefixOf` name -> name
-                  | "/" `isPrefixOf` name -> name
+                _ | "./" `isPrefixOf` name -> name ++ optarg
+                  | "/" `isPrefixOf`  name -> name ++ optarg
                   | otherwise  -> "./" ++ name ++ optarg)
-    where optarg = if verbose opt then " -v" else ""
+    where optarg = if verbose opt then " -v -s " else " -s "
 
 
 countStaticErrors :: Source -> IO Int

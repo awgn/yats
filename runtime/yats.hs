@@ -81,15 +81,16 @@ main = do
 
 runMultipleTests :: Options -> IO ()
 runMultipleTests opt  = do
+
     putStrLn $ bold ++ "YATS " ++ yatsVersion ++ reset
 
     let srcs = filter isCppSource (others opt)
     let bins = filter isBinary (others opt)
     let copt = getOption (others opt)
 
-    putStrLn $ "compiler options : " ++ show copt
-    putStrLn $ "source code tests: " ++ show srcs
-    putStrLn $ "binary tests     : " ++ show bins
+    unless (null copt) $ putStrLn ("compiler options : " ++ show copt)
+    unless (null srcs) $ putStrLn ("source code tests: " ++ show srcs)
+    unless (null bins) $ putStrLn ("binary tests     : " ++ show bins)
 
     t1 <- forM bins $ runYatsBinTests opt >=> checkVerdict
     t2 <- forM srcs $ runYatsSrcTests opt copt >=> checkVerdict
@@ -99,17 +100,16 @@ runMultipleTests opt  = do
     let p1 = foldr (\b acc -> if b == verdictOk then acc + 1 else acc) 0 t1
     let p2 = foldr (\b acc -> if b == verdictOk then acc + 1 else acc) 0 t2
 
-    if (p1+p2) == total
-        then putStrLn $ bold ++ "Summary: all tests successfully passed." ++ reset
-        else do putStrLn $ bold ++ "Summary: " ++ show (p1+p2) ++ " tests passed out of " ++ show total  ++ ":" ++ reset
-                mapM_ (\(name, msg) -> do
-                        el <- getExceptions $ "/tmp/" ++ name
-                        putStrLn $ "    " ++ name ++ ": " ++  msg ++
-                            if null el
-                                then "!"
-                                else "\n    -> exceptions: " ++ intercalate "    \n" el
-                      ) $
-                      mapMaybe (\(e,n) -> if e /= verdictOk then Just (n, getErrorString e) else Nothing) (zip (t1 ++ t2) (bins ++ srcs))
+    putStrLn $ if (p1+p2) == total
+                then bold ++ "Summary: all tests successfully passed." ++ reset
+                else bold ++ "Summary: " ++ show (p1+p2) ++ " complete tests passed out of " ++ show total  ++ ":" ++ reset
+
+    when ((p1 + p2) /= total) $
+        mapM_ (\(name, msg) -> do
+            el <- getCauseString $ "/tmp/" ++ name
+            putStrLn $ if null el then "  " ++ name ++ ": " ++ msg
+                                  else "  " ++ name ++ ": " ++ msg ++ " -> Cause: " ++ unlines el
+        ) $ mapMaybe (\(e,n) -> if e /= verdictOk then Just (n, getErrorString e) else Nothing) (zip (t1 ++ t2) (bins ++ srcs))
 
 
 runYatsBinTests :: Options -> FilePath -> IO TestVerdict
@@ -150,13 +150,13 @@ checkVerdict ret@(ExitSuccess, ExitSuccess, ExitFailure _) = putStrLn ( red   ++
 
 getErrorString :: TestVerdict -> String
 getErrorString (ExitSuccess, ExitSuccess, ExitSuccess)      = "OK"
-getErrorString (ExitFailure n , _ , _)                      = "static assert error [exit code = " ++ show n ++ "]"
-getErrorString (ExitSuccess   , ExitFailure n , _ )         = "compiler error [exit code = " ++ show n ++ "]"
+getErrorString (ExitFailure n , _ , _)                      = "static  error [exit code = " ++ show n ++ "]"
+getErrorString (ExitSuccess   , ExitFailure n , _ )         = "compile error [exit code = " ++ show n ++ "]"
 getErrorString (ExitSuccess   , ExitSuccess, ExitFailure n) = "runtime error [exit code = " ++ show n ++ "]"
 
 
-getExceptions :: FilePath -> IO [String]
-getExceptions name = doesFileExist name >>= \f ->
+getCauseString :: FilePath -> IO [String]
+getCauseString name = doesFileExist name >>= \f ->
     if f then liftM lines $ readFile name
          else return []
 

@@ -443,6 +443,66 @@ inline namespace yats
             static std::string name(n);
             return name;
         }
+
+        static const std::map<int, std::string> &
+        unix_signal_map()
+        {
+            static std::map<int, std::string> m = []() {
+                std::map<std::string, std::vector<int>> reverse
+                    = {{"SIGHUP"  ,  {     1     }},
+                       {"SIGINT"  ,  {     2     }},
+                       {"SIGQUIT" ,  {     3     }},
+                       {"SIGILL"  ,  {     4     }},
+                       {"SIGABRT" ,  {     6     }},
+                       {"SIGFPE"  ,  {     8     }},
+                       {"SIGKILL" ,  {     9     }},
+                       {"SIGSEGV" ,  {    11     }},
+                       {"SIGPIPE" ,  {    13     }},
+                       {"SIGALRM" ,  {    14     }},
+                       {"SIGTERM" ,  {    15     }},
+                       {"SIGUSR1" ,  { 30,10,16  }},
+                       {"SIGUSR2" ,  { 31,12,17  }},
+                       {"SIGCHLD" ,  { 20,17,18  }},
+                       {"SIGCONT" ,  { 19,18,25  }},
+                       {"SIGSTOP" ,  { 17,19,23  }},
+                       {"SIGTSTP" ,  { 18,20,24  }},
+                       {"SIGTTIN" ,  { 21,21,26  }},
+                       {"SIGTTOU" ,  { 22,22,27  }},
+                       {"SIGBUS"  ,  { 10,7,10   }},
+                       {"SIGPROF" ,  { 27,27,29  }},
+                       {"SIGSYS"  ,  { 12,31,12  }},
+                       {"SIGTRAP" ,  {    5      }},
+                       {"SIGURG"  ,  { 16,23,21  }},
+                       {"SIGVTALRM", { 26,26,28  }},
+                       {"SIGXCPU" ,  { 24,24,30  }},
+                       {"SIGXFSZ" ,  { 25,25,31  }}};
+
+                std::map<int, std::string> sigmap;
+
+                for (auto const & sig : reverse)
+                {
+                    for(auto const &signum : sig.second)
+                    {
+                        sigmap.insert(std::make_pair(signum, sig.first));
+                    }
+                }
+
+                return sigmap;
+            }();
+
+            return m;
+        }
+
+        static std::string
+        unix_signal(int n)
+        {
+            auto it = unix_signal_map().find(n);
+            if (it != std::end(unix_signal_map())) {
+                return it->second;
+            }
+            return std::string("SIGNUM ") + std::to_string(n);
+        }
+
     };
 
     ////////////////////////////////////////////// run tests:
@@ -450,7 +510,7 @@ inline namespace yats
     static void sig_handler(int n)
     {
         std::ofstream ferr("/tmp/" + singleton::program_name(), std::fstream::app);
-        ferr << "SIGNUM " << n << std::endl;
+        ferr << singleton::unix_signal(n) << std::endl;
         _Exit (-n);
     }
 

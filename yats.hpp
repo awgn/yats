@@ -608,13 +608,14 @@ inline namespace yats
 
                         if (run_test.empty())
                             return ctx.second->task_list_.size();
-
-                        else return std::count_if (std::begin(ctx.second->task_list_),
+                        else
+                            return static_cast<size_t>(
+                                std::count_if (std::begin(ctx.second->task_list_),
                                        std::end(ctx.second->task_list_),
                                        [&] (std::pair<context::Task,std::string> const &elem) -> bool {
 
                                             return std::find(std::begin(run_test), std::end(run_test), elem.second) != std::end(run_test);
-                                       });
+                                       }));
                         }();
         }
 

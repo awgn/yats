@@ -10,6 +10,7 @@
 
 #include <yats.hpp>
 
+using namespace yats;
 
 std::mt19937 RandomEngine;
 
@@ -91,15 +92,21 @@ Context(good_context)
         AssertThrow( throw std::logic_error("ok"), std::logic_error("ok"));
     }
 
+    ///////////////// commas in Assert macro:
+
+    Test(test_11)
+    {
+        Assert(std::vector<int>{1,2,3}.size() == 3);
+        Assert(std::vector<int>{1,2,3}.size(), is_equal_to(3) and is_greater(1));
+    }
+
     /////////////////  uniform distribution: dice 1 - 6
 
-    Random(test_14, (std::uniform_int_distribution<int>, x, 1, 6),
+    Random(test_12, (std::uniform_int_distribution<int>, x, 1, 6),
                     (std::lognormal_distribution<double>, y, 0, 0.5) )
     {
         Assert( x , is_greater_equal(1));
-
         Assert( x , is_less_equal(6));
-
         Assert( y,  is_greater_equal(0.0));
     }
 

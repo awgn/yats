@@ -10,6 +10,7 @@
 
 #include <yats.hpp>
 
+using namespace yats;
 
 std::mt19937 RandomEngine;
 
@@ -97,12 +98,12 @@ Context(bad_context)
 
     Test(test_10)
     {
-        AssertThrow(throw std::runtime_error("error"), std::logic_error("bad"));
+        AssertThrowAs(std::logic_error("bad"), throw std::runtime_error("error"));
     }
 
     Test(test_11)
     {
-        AssertThrow(throw std::runtime_error("error"), std::runtime_error("not ok"));
+        AssertThrowAs(std::runtime_error("not ok"), throw std::runtime_error("error"));
     }
 
     ////////////////// generic predicate

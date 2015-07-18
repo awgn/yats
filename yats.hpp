@@ -269,11 +269,15 @@ namespace yats
     inline std::string
     cxa_demangle(const char *name)
     {
+#ifdef __GNUC__
         int status;
         std::unique_ptr<char, void (*)(void *)> ret(abi::__cxa_demangle(name,0,0, &status), ::free);
         if (status < 0)
             throw yats_error("__cxa_demangle");
         return std::string(ret.get());
+#else
+        throw std::runtime_error("YATS: demangle not supported");
+#endif
     }
 
     template <typename Tp>

@@ -58,10 +58,10 @@ options = cmdArgsMode $ Options
           {
             verbose = False  &= help "verbose",
             others = []      &= args
-          } &= summary ("yats " ++ yatsVersion ++ ". Usage: yats [OPTIONS] -- files... [compiler OPT]") &= program "yats"
+          } &= summary ("YATS " ++ yatsVersion ++ ". Usage: runyats [OPTIONS] -- files... [compiler OPT]") &= program "yats"
 
 yatsVersion :: String
-yatsVersion = "runtime v1.6"
+yatsVersion = "runtime v2.0"
 
 magenta = setSGRCode [SetColor Foreground Vivid Magenta]
 blue    = setSGRCode [SetColor Foreground Vivid Blue]
@@ -133,7 +133,7 @@ runtimeSrcTest opt src copt = liftM makeCmd getCompiler >>= \cmd -> liftM2 (,) (
 
 runStaticTest :: Options -> Source -> [CompOpt] -> Int ->  Int -> IO ExitCode
 runStaticTest opt src copt total n = do
-    putStrLn $ bold ++ "Running " ++ show (n+1) ++ " out of " ++ show total ++ " static assert tests on " ++ src ++ "..." ++ reset
+    putStrLn $ bold ++ "Running " ++ show (n+1) ++ " out of " ++ show total ++ " StaticAssert tests on " ++ src ++ "..." ++ reset
     r <- liftM makeCmd getCompiler >>= system
     if r == ExitSuccess
       then runBinary opt $ src ++ ".out"

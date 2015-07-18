@@ -1,22 +1,12 @@
-/* $Id$ */
-/*
- * ----------------------------------------------------------------------------
- * "THE BEER-WARE LICENSE" (Revision 42):
- * <bonelli@antifork.org> wrote this file. As long as you retain this notice you
- * can do whatever you want with this stuff. If we meet some day, and you think
- * this stuff is worth it, you can buy me a beer in return. Nicola Bonelli
- * ----------------------------------------------------------------------------
- */
-
-#include <yats.hpp>
+#include <random>
+#include "yats.hpp"
 
 using namespace yats;
 
-std::mt19937 RandomEngine;
-
-
-Context(good_context)
+namespace group_context
 {
+    std::mt19937 rand_engine;
+
     // Example: noncopyable class...
     //
 
@@ -33,82 +23,107 @@ Context(good_context)
     StaticError( NonCopyable x = NonCopyable(),       "non copyable class!")
     StaticError( NonCopyable x; Noncopyable y; x = y, "non assignable class!")
 
+    auto good = Group("good")
 
-    Test(test_0)
-    {
-        Assert(std::vector<int>().empty());
-    }
+        .Setup([] (YATS_TASK) {
 
-    Test(test_1)
-    {
-        Assert(!std::vector<int>().empty(), is_false());
-    }
+               std::cout << "[*] Setup!" << std::endl;
+        })
 
-    Test(test_2)
-    {
-        Assert(2, not is_greater(2) and not is_less(2));
-    }
+        .Teardown([] (YATS_TASK) {
 
-    Test(test_3)
-    {
-        Assert(2, is_greater_equal(2));
-    }
+               std::cout << "[*] Teardown!" << std::endl;
+        })
 
-    Test(test_4)
-    {
-        Assert(1, is_less(2));
-    }
+        .Prolog([](YATS_TASK) {
 
-    Test(test_5)
-    {
-        Assert(0, is_less_equal(1));
-    }
+            std::cout << "+ Prolog!" << std::endl;
 
-    Test(test_6)
-    {
-        Assert(42, is_equal_to(42));
-    }
+        })
 
-    Test(test_7)
-    {
-        Assert(42, is_not_equal_to(39) and is_not_equal_to(11));
-    }
+        .Epilog([](YATS_TASK) {
 
-    ////////////////// exceptions
+            std::cout << "- Epilog!" << std::endl;
 
-    Test(test_8)
-    {
-        int n = 0;
-        AssertNoThrow(n++);
-    }
+        })
 
-    Test(test_9)
-    {
-        AssertThrow( throw std::runtime_error("ok") );
-    }
+        .Single("test_0", [](YATS_DEFAULT_TASK) {
 
-    Test(test_10)
-    {
-        AssertThrow( throw std::logic_error("ok"), std::logic_error("ok"));
-    }
+                Assert(std::vector<int>().empty());
+        })
 
-    ///////////////// commas in Assert macro:
+        .Single("test_1", [](YATS_DEFAULT_TASK) {
 
-    Test(test_11)
-    {
-        Assert(std::vector<int>{1,2,3}.size() == 3);
-        Assert(std::vector<int>{1,2,3}.size(), is_equal_to(3) and is_greater(1));
-    }
+            Assert(!std::vector<int>().empty(), is_false());
+        })
 
-    /////////////////  uniform distribution: dice 1 - 6
+        .Single("test_2", [](YATS_DEFAULT_TASK) {
 
-    Random(test_12, (std::uniform_int_distribution<int>, x, 1, 6),
-                    (std::lognormal_distribution<double>, y, 0, 0.5) )
-    {
-        Assert( x , is_greater_equal(1));
-        Assert( x , is_less_equal(6));
-        Assert( y,  is_greater_equal(0.0));
-    }
+            Assert(2, not is_greater(2) and not is_less(2));
+        })
+
+        .Single("test_3", [](YATS_DEFAULT_TASK) {
+
+            Assert(2, is_greater_equal(2));
+        })
+
+        .Single("test_4", [](YATS_DEFAULT_TASK) {
+
+            Assert(1, is_less(2));
+        })
+
+        .Single("test_5", [](YATS_DEFAULT_TASK) {
+
+            Assert(0, is_less_equal(1));
+        })
+
+        .Single("test_6", [](YATS_DEFAULT_TASK) {
+
+            Assert(42, is_equal_to(42));
+        })
+
+        .Single("test_7", [](YATS_DEFAULT_TASK) {
+
+            Assert(42, is_not_equal_to(39) and is_not_equal_to(11));
+        })
+
+        ////////////////// exceptions
+
+        .Single("test_8", [](YATS_DEFAULT_TASK) {
+
+            int n = 0;
+            AssertNoThrow(n++);
+        })
+
+        .Single("test_9", [](YATS_DEFAULT_TASK) {
+
+            AssertThrow( throw std::runtime_error("ok") );
+        })
+
+        .Single("test_10", [](YATS_DEFAULT_TASK) {
+
+            AssertThrow( throw std::logic_error("ok"), std::logic_error("ok"));
+        })
+
+        .Single("test_11", [](YATS_DEFAULT_TASK) {
+
+            Assert(std::vector<int>{1,2,3}.size() == 3);
+            Assert(std::vector<int>{1,2,3}.size(), is_equal_to(3) and is_greater(1));
+        })
+
+        .Repeat("test_12", [] (YATS_REPEAT_TASK, int) {
+
+            std::uniform_int_distribution<int> u(1, 6);
+            std::lognormal_distribution<double> l(0, 0.5);
+
+            auto x = u(rand_engine);
+            auto y = l(rand_engine);
+
+            Assert( x , is_greater_equal(1));
+            Assert( x , is_less_equal(6));
+            Assert( y,  is_greater_equal(0.0));
+
+        });
 
 }
 

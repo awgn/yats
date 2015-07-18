@@ -61,10 +61,12 @@
 #define AssertThrow(...)            yats::assert_throw  (__FILE__, __LINE__, _group, _test, [&](){ __VA_ARGS__; }, anything())
 #define AssertThrowAs(e,...)        yats::assert_throw  (__FILE__, __LINE__, _group, _test, [&](){ __VA_ARGS__; }, e)
 
-#define YATS_DEFAULT_TASK           std::string const &_group, std::string const &_test, int
-#define YATS_REPEAT_TASK            std::string const &_group, std::string const &_test
-#define YATS_TASK                   std::string const &, std::string const &, int
+#define YATS_DEFAULT_CXT            std::string const &_group, std::string const &_test, int
+#define YATS_REPEAT_CXT             std::string const &_group, std::string const &_test
+#define YATS_IGNORE_CXT             std::string const &, std::string const &, int
 
+#define DefaultTask(n)              #n, [] (YATS_DEFAULT_CXT)
+#define SimpleTask()                [] (YATS_IGNORE_CXT)
 
 ////////////////////////////////////////////// static assert:
 
@@ -523,7 +525,7 @@ namespace yats
         Repeat(std::string name, Fun f) &
         {
             check_unique_test_name(name);
-            test_.emplace_back(std::move(name), [=](YATS_REPEAT_TASK, int run) {
+            test_.emplace_back(std::move(name), [=](YATS_REPEAT_CXT, int run) {
                                     for(int i = 0; i < run; i++)
                                         f(_group, _test, i);
                                   });
@@ -534,7 +536,7 @@ namespace yats
         Repeat(std::string name, Fun f) &&
         {
             check_unique_test_name(name);
-            test_.emplace_back(std::move(name), [=](YATS_REPEAT_TASK, int run) {
+            test_.emplace_back(std::move(name), [=](YATS_REPEAT_CXT, int run) {
                                     for(int i = 0; i < run; i++)
                                         f(_group, _test, i);
                                   });

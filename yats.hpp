@@ -394,7 +394,6 @@ namespace yats
         return "()";
     }
 
-
     ////////////////////////////////////////////// groups:
 
     template <typename Fun>
@@ -555,7 +554,6 @@ namespace yats
         std::set<std::string> test_names_;
     };
 
-
     ////////////////////////////////////////////// usage:
 
     static void usage(const char *name)
@@ -572,6 +570,8 @@ namespace yats
 
         _Exit(EXIT_SUCCESS);
     }
+
+    ////////////////////////////////////////////// YATS!
 
     static int run(int argc = 0, char *argv[] = nullptr)
     try
@@ -723,10 +723,9 @@ namespace yats
                 for(auto & p : ctx->prolog_)
                     p.second();
 
-                bool retry;
+                bool retry = true;
                 do
                 {
-                    retry = true;
                     try
                     {
                         t.second(repeat_run);
@@ -735,8 +734,9 @@ namespace yats
                     }
                     catch(yats_error &e)
                     {
+                        err = true;
                         global::instance().yats_except.emplace(e.file_, e.line_);
-                        err = true; auto msg = make_string(ctx->name_, " :: " , t.first, ": ", e.what());
+                        auto msg = make_string(ctx->name_, " :: " , t.first, ": ", e.what());
                         std::cerr << msg << std::endl; ferr << msg << std::endl;
                     }
                     catch(std::exception &e)
@@ -803,15 +803,8 @@ namespace yats
         , arg_()
         {}
 
-        bool
-        operator()(T const& value) const
-        {
-            return fun_(value);
-        }
-
         template <typename T2>
-        bool
-        operator()(T2 value) const
+        bool operator()(T2 value) const
         {
             return fun_(std::move(value));
         }
@@ -861,7 +854,6 @@ namespace yats
     private:
         P1 lhs_;
         P2 rhs_;
-
     };
 
 

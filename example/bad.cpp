@@ -139,7 +139,6 @@ namespace group_context
         {
             Assert(1, !is_greater(0));
         });
-
 }
 
 

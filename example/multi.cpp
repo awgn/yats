@@ -24,7 +24,6 @@
  *
  ******************************************************************************/
 
-#include <random>
 #include "yats.hpp"
 
 using namespace yats;

@@ -78,6 +78,7 @@
         } \
     } maybe_error_ = static_error();
 
+
 #if defined(YATS_STATIC_ERROR) && YATS_STATIC_ERROR == 0
 #define YATS_STATIC_ERROR_0(expr,msg) YATS_STATIC_ERROR_CLASS(expr,msg);
 #else
@@ -141,6 +142,8 @@ namespace yats
 
         std::vector<struct Group *> groups;
         std::set<std::string> group_names;
+
+        std::set<std::pair<std::string, int>> yats_except;
 
         static global&
         instance()
@@ -226,13 +229,18 @@ namespace yats
 
     struct yats_error : public std::runtime_error
     {
-        explicit yats_error(const std::string &msg)
+        explicit yats_error(std::string file, int line, const std::string &msg)
         : std::runtime_error(msg)
+        , file_(std::move(file))
+        , line_(line)
         { }
 
         yats_error(const yats_error &) = default;
 
         virtual ~yats_error() noexcept { }
+
+        std::string file_;
+        int line_;
     };
 
     ////////////////////////////////////////////// nothing and anything:
@@ -268,7 +276,7 @@ namespace yats
         int status;
         std::unique_ptr<char, void (*)(void *)> ret(abi::__cxa_demangle(name,0,0, &status), ::free);
         if (status < 0)
-            throw yats_error("__cxa_demangle");
+            throw yats_error("", 0, "__cxa_demangle");
         return std::string(ret.get());
 #else
         throw std::runtime_error("YATS: demangle not supported");
@@ -366,7 +374,7 @@ namespace yats
         std::ostringstream o;
         o << std::boolalpha << v;
         if (v > 15)
-            o << ':' << std::hex << "0x" << v << std::dec;
+            o << '^' << std::hex << "0x" << v << std::dec;
         return o.str();
     }
     template <typename T>
@@ -715,40 +723,46 @@ namespace yats
                 for(auto & p : ctx->prolog_)
                     p.second();
 
-                try
+                bool retry;
+                do
                 {
-                    // run the test here
-                    t.second(repeat_run);
-                    ok++;
+                    retry = true;
+                    try
+                    {
+                        t.second(repeat_run);
+                        retry = false;
+                        ok++;
+                    }
+                    catch(yats_error &e)
+                    {
+                        global::instance().yats_except.emplace(e.file_, e.line_);
+                        err = true; auto msg = make_string(ctx->name_, " :: " , t.first, ": ", e.what());
+                        std::cerr << msg << std::endl; ferr << msg << std::endl;
+                    }
+                    catch(std::exception &e)
+                    {
+                        err = true; retry = false;
+                        auto msg = make_string(ctx->name_, " :: " , t.first, ":\n",
+                                               "    -> Unexpected exception: '", e.what(), "' error (retry interrupted).\n");
+                        std::cerr << msg; ferr << msg;
+                    }
+                    catch(...)
+                    {
+                        err = true; retry = false;
+                        auto msg = make_string(ctx->name_, " :: " , t.first, ":\n",
+                                               "    -> Unknown exception (retry interrupted).\n");
+                        std::cerr << msg; ferr << msg;
+                    }
                 }
-                catch(yats_error &e)
-                {
-                    err = true;
-                    auto msg = make_string(ctx->name_, "::" , t.first, ", ", e.what());
-                    std::cerr << msg << std::endl;
-                    ferr      << msg << std::endl;
-                }
-                catch(std::exception &e)
-                {
-                    err = true;
-                    auto msg = make_string(ctx->name_, "::" , t.first, ":\n", "    -> Unexpected exception: '", e.what(), "' error.\n");
-                    std::cerr << msg; ferr << msg;
-                }
-                catch(...)
-                {
-                    err = true;
-                    auto msg = make_string(ctx->name_, "::" , t.first, ":\n", "    -> Unknown exception.\n");
-                    std::cerr << msg;
-                    ferr << msg;
-                }
+                while(retry);
+
+                if (verbose)
+                    std::cout << "[" << duration_to_string(std::chrono::system_clock::now() - start) << "]" << std::endl;
 
                 // run epilog for this test...
 
                 for(auto & p : ctx->epilog_)
                     p.second();
-
-                if (verbose)
-                    std::cout << "[" << duration_to_string(std::chrono::system_clock::now() - start) << "]" << std::endl;
 
                 if (err && exit_immediatly)
                     _Exit(1);
@@ -945,15 +959,15 @@ namespace yats
     inline predicate<bool>
     is_true()
     {
-        return predicate<bool>( "is_boolean",
-                                std::function<bool(bool)>(std::bind(std::equal_to<bool>(), std::placeholders::_1, true)), true);
+        return predicate<bool>("is_boolean",
+                               std::function<bool(bool)>(std::bind(std::equal_to<bool>(), std::placeholders::_1, true)), true);
     }
 
     inline predicate<bool>
     is_false()
     {
-        return predicate<bool>( "is_boolean",
-                                std::function<bool(bool)>(std::bind(std::equal_to<bool>(), std::placeholders::_1, false)), false);
+        return predicate<bool>("is_boolean",
+                               std::function<bool(bool)>(std::bind(std::equal_to<bool>(), std::placeholders::_1, false)), false);
     }
 
     ////////////////////////////////////////////// predicate factory:
@@ -970,8 +984,11 @@ namespace yats
     template <typename T, typename P>
     void assert(const char *file, int line, const T &value, P pred)
     {
+        if (global::instance().yats_except.count(std::pair<std::string, int>(file, line)))
+            return;
+
         if (!pred(value))
-            throw yats_error(make_error(file, line, "    -> predicate ", pred.str(), " failed: got ", pretty(value)));
+                throw yats_error(file, line, make_error(file, line, "    -> predicate ", pred.str(), " failed: got ", pretty(value)));
 
         global::instance().assert_counter++;
     }
@@ -985,6 +1002,9 @@ namespace yats
     template <typename T, typename E>
     void assert_throw(const char *file, int line, T const & expr, E const &obj)
     {
+        if (global::instance().yats_except.count(std::pair<std::string, int>(file, line)))
+            return;
+
         try
         {
             expr();
@@ -992,7 +1012,7 @@ namespace yats
         catch(E &e)
         {
             if (std::string(e.what()).compare(obj.what()))
-                throw yats_error(make_error(file, line,
+                throw yats_error(file, line, make_error(file, line,
                                              "    -> ", yats::type_name(obj),
                                              " exception caught with reason \"",
                                              e.what(),
@@ -1003,7 +1023,7 @@ namespace yats
         catch(std::exception &e)
         {
             if (!std::is_same<E,anything>::value)
-                throw yats_error(make_error(file, line,
+                throw yats_error(file, line, make_error(file, line,
                                             "    -> ", yats::type_name(obj),
                                             " exception expected. Got ",
                                             yats::type_name(e),
@@ -1014,7 +1034,7 @@ namespace yats
         catch(...)
         {
             if (!std::is_same<E,anything>::value)
-                throw yats_error(make_error(file, line,
+                throw yats_error(file, line, make_error(file, line,
                                             "    -> ", yats::type_name(obj),
                                             " exception expected: got unknown exception!"));
             global::instance().assert_counter++;
@@ -1022,7 +1042,7 @@ namespace yats
         }
 
         if (!std::is_same<E, nothing>::value)
-            throw yats_error(make_error(file, line,
+            throw yats_error(file, line, make_error(file, line,
                                         "    -> ", yats::type_name(obj),
                                         " exception expected!"));
 

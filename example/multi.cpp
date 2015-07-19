@@ -32,10 +32,16 @@ using namespace yats;
 
 auto g = Group("Multiple Throw")
 
-        .Single( "test", []
+        .Single( "test_0", []
         {
             Assert(false);
             Assert(false);
+            Assert(false);
+        })
+        .Single( "test_1", []
+        {
+            Assert(false);
+            throw 0;
             Assert(false);
         });
 

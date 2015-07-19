@@ -49,94 +49,94 @@ namespace group_context
 
         ////////////////// tests that fail
 
-        .Single("test_0", [](YATS_DEFAULT_CXT) {
+        .Single("test_0", []
+        {
 
             Assert(std::vector<int>().empty(), is_false());
         })
 
-        .Single("test_1", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_1", []
+        {
             Assert(!std::vector<int>().empty(), is_true());
-
         })
 
-        .Single("test_2", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_2", []
+        {
             Assert(1, is_greater(2));
         })
 
-        .Single("test_3", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_3", []
+        {
             Assert(1, is_greater_equal(2));
         })
 
-        .Single("test_4", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_4", []
+        {
             Assert(2, is_less(2));
         })
 
-        .Single("test_5", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_5", []
+        {
             Assert(2, is_less_equal(1));
         })
 
-        .Single("test_6", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_6", []
+        {
             Assert(42, is_equal_to(39));
 
         })
 
-        .Single("test_7", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_7", []
+        {
             Assert(42, is_not_equal_to(42));
         })
 
         ////////////////// exceptions
 
-        .Single("test_8", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_8", []
+        {
             AssertNoThrow(throw 0);
         })
 
-        .Single("test_9", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_9", []
+        {
             int n = 0;
             AssertThrow(n++);
         })
 
-        .Single("test_10", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_10", []
+        {
             AssertThrowAs(std::logic_error("bad"), throw std::runtime_error("error"));
         })
 
-        .Single("test_11", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_11", []
+        {
             AssertThrowAs(std::runtime_error("not ok"), throw std::runtime_error("error"));
         })
 
         ////////////////// generic predicate
 
-        .Single("test_12", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_12", []
+        {
             Assert(11, make_predicate<int>("is_even", [](int n) -> bool { return !(n&1); }));
         })
 
         ////////////////// unexpected exception
 
-        .Single("test_13", [](YATS_IGNORE_CXT) {
-
+        .Single("test_13", []
+        {
             throw std::runtime_error("unexpected exception");
         })
 
         /////////////////  boolean combinator:
 
-        .Single("test_14", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_14", []
+        {
             Assert(42, is_less(0) and is_greater(0));
         })
 
-        .Single("test_15", [](YATS_DEFAULT_CXT) {
-
+        .Single("test_15", []
+        {
             Assert(1, !is_greater(0));
         });
 

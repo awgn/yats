@@ -56,17 +56,10 @@
 
 ////////////////////////////////////////////// runtime assert:
 
-#define Assert(...)                 yats::assert        (__FILE__, __LINE__, _group, _test, __VA_ARGS__)
-#define AssertNoThrow(...)          yats::assert_throw  (__FILE__, __LINE__, _group, _test, [&](){ __VA_ARGS__; }, nothing())
-#define AssertThrow(...)            yats::assert_throw  (__FILE__, __LINE__, _group, _test, [&](){ __VA_ARGS__; }, anything())
-#define AssertThrowAs(e,...)        yats::assert_throw  (__FILE__, __LINE__, _group, _test, [&](){ __VA_ARGS__; }, e)
-
-#define YATS_DEFAULT_CXT            std::string const &_group, std::string const &_test, int
-#define YATS_REPEAT_CXT             std::string const &_group, std::string const &_test
-#define YATS_IGNORE_CXT             std::string const &, std::string const &, int
-
-#define DefaultTask(n)              #n, [] (YATS_DEFAULT_CXT)
-#define SimpleTask()                [] (YATS_IGNORE_CXT)
+#define Assert(...)                 yats::assert        (__FILE__, __LINE__, __VA_ARGS__)
+#define AssertNoThrow(...)          yats::assert_throw  (__FILE__, __LINE__, [&](){ __VA_ARGS__; }, nothing())
+#define AssertThrow(...)            yats::assert_throw  (__FILE__, __LINE__, [&](){ __VA_ARGS__; }, anything())
+#define AssertThrowAs(e,...)        yats::assert_throw  (__FILE__, __LINE__, [&](){ __VA_ARGS__; }, e)
 
 ////////////////////////////////////////////// static assert:
 
@@ -143,10 +136,6 @@ namespace yats
 
     struct global
     {
-        global() = default;
-        global(global const&  other) = delete;
-        global& operator=(global const&  other) = delete;
-
         std::string program_name;
         size_t assert_counter;
 
@@ -159,6 +148,12 @@ namespace yats
             static global one;
             return one;
         }
+
+        global(global const&  other) = delete;
+        global& operator=(global const&  other) = delete;
+
+    private:
+        global() = default;
     };
 
     ////////////////////////////////////////////// unix signal:
@@ -209,22 +204,21 @@ namespace yats
 
             return m;
         }
-    }
 
-    static std::string
-    unix_signal(int n)
-    {
-        auto it = detail::unix_signal_map().find(n);
-        if (it != std::end(detail::unix_signal_map()))
-            return it->second;
-
-        return std::string("SIGNUM ") + std::to_string(n);
+        static std::string
+        unix_signal(int n)
+        {
+            auto it = detail::unix_signal_map().find(n);
+            if (it != std::end(detail::unix_signal_map()))
+                return it->second;
+            return std::string("SIGNUM ") + std::to_string(n);
+        }
     }
 
     static void sig_handler(int n)
     {
         std::ofstream ferr("/tmp/" + global::instance().program_name, std::fstream::app);
-        ferr << unix_signal(n) << std::endl;
+        ferr << detail::unix_signal(n) << std::endl;
         _Exit (-n);
     }
 
@@ -238,8 +232,7 @@ namespace yats
 
         yats_error(const yats_error &) = default;
 
-        virtual ~yats_error() noexcept
-        { }
+        virtual ~yats_error() noexcept { }
     };
 
     ////////////////////////////////////////////// nothing and anything:
@@ -327,9 +320,9 @@ namespace yats
 
     template <typename ...Ts>
     std::string
-    make_error(std::string const &ctx, std::string const &test, const char *file, int line, Ts&&... args)
+    make_error(const char *file, int line, Ts&&... args)
     {
-        return make_string(file, ':', line, ": *** ", ctx, "::", test, ":\n", std::forward<Ts>(args)...);
+        return make_string(file, ':', line, ":\n", std::forward<Ts>(args)...);
     }
 
     ////////////////////////////////////////////// type traits:
@@ -393,17 +386,11 @@ namespace yats
         return "()";
     }
 
-    ////////////////////////////////////////////// task:
+
+    ////////////////////////////////////////////// groups:
 
     template <typename Fun>
     using task = std::pair<std::string, std::function<Fun>>;
-
-
-    template <typename Ret, typename ...Ts>
-    using default_task = task<Ret(std::string const &, std::string const &, Ts...)>;
-
-
-    ////////////////////////////////////////////// groups:
 
     struct Group
     {
@@ -508,7 +495,7 @@ namespace yats
         Single(std::string name, Fun f) &
         {
             check_unique_test_name(name);
-            test_.emplace_back(std::move(name), std::move(f));
+            test_.emplace_back(std::move(name), [=] (int) { f(); });
             return *this;
         }
         template <typename Fun>
@@ -516,7 +503,7 @@ namespace yats
         Single(std::string name, Fun f) &&
         {
             check_unique_test_name(name);
-            test_.emplace_back(std::move(name), std::move(f));
+            test_.emplace_back(std::move(name), [=] (int) { f(); });
             return std::move(*this);
         }
 
@@ -525,9 +512,9 @@ namespace yats
         Repeat(std::string name, Fun f) &
         {
             check_unique_test_name(name);
-            test_.emplace_back(std::move(name), [=](YATS_REPEAT_CXT, int run) {
+            test_.emplace_back(std::move(name), [=](int run) {
                                     for(int i = 0; i < run; i++)
-                                        f(_group, _test, i);
+                                        f();
                                   });
             return *this;
         }
@@ -536,9 +523,9 @@ namespace yats
         Repeat(std::string name, Fun f) &&
         {
             check_unique_test_name(name);
-            test_.emplace_back(std::move(name), [=](YATS_REPEAT_CXT, int run) {
+            test_.emplace_back(std::move(name), [=](int run) {
                                     for(int i = 0; i < run; i++)
-                                        f(_group, _test, i);
+                                        f();
                                   });
             return std::move(*this);
         }
@@ -550,12 +537,12 @@ namespace yats
         }
 
         std::string name_;
-        std::vector<default_task<void, int>> setup_;
-        std::vector<default_task<void, int>> teardown_;
 
-        std::vector<default_task<void, int>> prolog_;
-        std::vector<default_task<void, int>> test_;
-        std::vector<default_task<void, int>> epilog_;
+        std::vector<task<void()>> setup_;
+        std::vector<task<void()>> teardown_;
+        std::vector<task<void()>> prolog_;
+        std::vector<task<void(int)>> test_;
+        std::vector<task<void()>> epilog_;
 
         std::set<std::string> test_names_;
     };
@@ -678,7 +665,7 @@ namespace yats
 
                 return std::count_if(std::begin(ctx->test_),
                                      std::end(ctx->test_),
-                                     [&] (default_task<void, int> const &t)
+                                     [&] (task<void(int)> const &t)
                                      {
                                          return std::find(std::begin(run_test), std::end(run_test), t.first) != std::end(run_test);
                                      });
@@ -705,7 +692,7 @@ namespace yats
             // run per-group setup tasks:
 
             for(auto & t : ctx->setup_)
-                t.second(ctx->name_, t.first, 0);
+                t.second();
 
             // run tasks...
             //
@@ -725,30 +712,31 @@ namespace yats
                 // run prolog for this test...
 
                 for(auto & p : ctx->prolog_)
-                    p.second(ctx->name_, p.first, 0);
+                    p.second();
 
                 try
                 {
                     // run the test here
-                    t.second(ctx->name_, t.first, repeat_run);
+                    t.second(repeat_run);
                     ok++;
                 }
                 catch(yats_error &e)
                 {
                     err = true;
-                    std::cerr << e.what() << std::endl;
-                    ferr      << e.what() << std::endl;
+                    auto msg = make_string(ctx->name_, "::" , t.first, ", ", e.what());
+                    std::cerr << msg << std::endl;
+                    ferr      << msg << std::endl;
                 }
                 catch(std::exception &e)
                 {
                     err = true;
-                    auto msg = make_string("test ", ctx->name_, "::" , t.first, ":\n", "    -> Unexpected exception: '", e.what(), "' error.\n");
+                    auto msg = make_string(ctx->name_, "::" , t.first, ":\n", "    -> Unexpected exception: '", e.what(), "' error.\n");
                     std::cerr << msg; ferr << msg;
                 }
                 catch(...)
                 {
                     err = true;
-                    auto msg = make_string("test ", ctx->name_, "::" , t.first, ":\n", "    -> Unknown exception.\n");
+                    auto msg = make_string(ctx->name_, "::" , t.first, ":\n", "    -> Unknown exception.\n");
                     std::cerr << msg;
                     ferr << msg;
                 }
@@ -756,7 +744,7 @@ namespace yats
                 // run epilog for this test...
 
                 for(auto & p : ctx->epilog_)
-                    p.second(ctx->name_, p.first, 0);
+                    p.second();
 
                 if (verbose)
                     std::cout << "[" << duration_to_string(std::chrono::system_clock::now() - start) << "]" << std::endl;
@@ -768,7 +756,7 @@ namespace yats
             // run per-group teardown tasks:
 
             for(auto & t : ctx->teardown_)
-                t.second(ctx->name_, t.first, 0);
+                t.second();
         }
 
         std::cerr <<  std::endl << (run-ok) << " out of " << run  << " tests failed. " << global::instance().assert_counter << " assertions passed." << std::endl;
@@ -979,23 +967,22 @@ namespace yats
     ////////////////////////////////////////////// YATS assertions:
 
     template <typename T, typename P>
-    void assert(const char *file, int line, const std::string &ctx, const std::string &test, const T &value, P pred)
+    void assert(const char *file, int line, const T &value, P pred)
     {
         if (!pred(value))
-            throw yats_error(make_error(ctx, test, file, line,
-                                        "    -> predicate ", pred.str(), " failed: got ", pretty(value)));
+            throw yats_error(make_error(file, line, "    -> predicate ", pred.str(), " failed: got ", pretty(value)));
 
         global::instance().assert_counter++;
     }
 
     static inline
-    void assert(const char *file, int line, const std::string &ctx, const std::string &test, bool value)
+    void assert(const char *file, int line, bool value)
     {
-        return assert(file, line, ctx, test, value, is_true());
+        return assert(file, line, value, is_true());
     }
 
     template <typename T, typename E>
-    void assert_throw(const char *file, int line, const std::string &ctx, const std::string &test, T const & expr, E const &obj)
+    void assert_throw(const char *file, int line, T const & expr, E const &obj)
     {
         try
         {
@@ -1004,7 +991,7 @@ namespace yats
         catch(E &e)
         {
             if (std::string(e.what()).compare(obj.what()))
-                throw yats_error(make_error(ctx, test, file, line,
+                throw yats_error(make_error(file, line,
                                              "    -> ", yats::type_name(obj),
                                              " exception caught with reason \"",
                                              e.what(),
@@ -1015,7 +1002,7 @@ namespace yats
         catch(std::exception &e)
         {
             if (!std::is_same<E,anything>::value)
-                throw yats_error(make_error(ctx, test, file, line,
+                throw yats_error(make_error(file, line,
                                             "    -> ", yats::type_name(obj),
                                             " exception expected. Got ",
                                             yats::type_name(e),
@@ -1026,7 +1013,7 @@ namespace yats
         catch(...)
         {
             if (!std::is_same<E,anything>::value)
-                throw yats_error(make_error(ctx, test, file, line,
+                throw yats_error(make_error(file, line,
                                             "    -> ", yats::type_name(obj),
                                             " exception expected: got unknown exception!"));
             global::instance().assert_counter++;
@@ -1034,7 +1021,7 @@ namespace yats
         }
 
         if (!std::is_same<E, nothing>::value)
-            throw yats_error(make_error(ctx, test, file, line,
+            throw yats_error(make_error(file, line,
                                         "    -> ", yats::type_name(obj),
                                         " exception expected!"));
 

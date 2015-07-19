@@ -663,12 +663,13 @@ namespace yats
                 if (run_test.empty())
                     return ctx->test_.size();
 
-                return std::count_if(std::begin(ctx->test_),
+                return static_cast<size_t>(
+                        std::count_if(std::begin(ctx->test_),
                                      std::end(ctx->test_),
                                      [&] (task<void(int)> const &t)
                                      {
                                          return std::find(std::begin(run_test), std::end(run_test), t.first) != std::end(run_test);
-                                     });
+                                     }));
              }();
         }
 

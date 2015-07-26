@@ -34,15 +34,26 @@ auto g = Group("Multiple Throw")
         .Single( "test_0", []
         {
             Assert(false);
-            Assert(false);
-            Assert(false);
+            Assert(true);
         })
+
         .Single( "test_1", []
         {
             Assert(false);
-            throw 0;
             Assert(false);
-        });
+        })
+        .Single( "test_2", []
+        {
+            Assert(false);
+            throw 0;
+            Assert(false); // this assert is never checked!
+        })
+        .Single( "test_3", []
+        {
+            for(int i = 0; i < 10; i++)
+                AssertId(i, i == 0);
+        })
+        ;
 
 int
 main(int argc, char *argv[])

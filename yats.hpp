@@ -54,19 +54,20 @@
 #endif
 
 
-////////////////////////////////////////////// runtime assert:
+////////////////////////////////////////////// runtime yats_assert:
 
-#define Assert(...)                 yats::assert        (__FILE__, __LINE__, 0, __VA_ARGS__)
-#define AssertNoThrow(...)          yats::assert_throw  (__FILE__, __LINE__, 0, [&](){ __VA_ARGS__; }, nothing())
-#define AssertThrow(...)            yats::assert_throw  (__FILE__, __LINE__, 0, [&](){ __VA_ARGS__; }, anything())
-#define AssertThrowAs(e,...)        yats::assert_throw  (__FILE__, __LINE__, 0, [&](){ __VA_ARGS__; }, e)
+#define Assert(...)                 yats_assert        (__FILE__, __LINE__, 0, __VA_ARGS__)
+#define AssertNoThrow(...)          yats_assert_throw  (__FILE__, __LINE__, 0, [&](){ __VA_ARGS__; }, nothing())
+#define AssertThrow(...)            yats_assert_throw  (__FILE__, __LINE__, 0, [&](){ __VA_ARGS__; }, anything())
+#define AssertThrowAs(e,...)        yats_assert_throw  (__FILE__, __LINE__, 0, [&](){ __VA_ARGS__; }, e)
 
-#define AssertId(n, ...)            yats::assert        (__FILE__, __LINE__, n, __VA_ARGS__)
-#define AssertNoThrowId(n, ...)     yats::assert_throw  (__FILE__, __LINE__, n, [&](){ __VA_ARGS__; }, nothing())
-#define AssertThrowId(n, ...)       yats::assert_throw  (__FILE__, __LINE__, n, [&](){ __VA_ARGS__; }, anything())
-#define AssertThrowAsId(n, e,...)   yats::assert_throw  (__FILE__, __LINE__, n, [&](){ __VA_ARGS__; }, e)
+#define AssertId(n, ...)            yats_assert        (__FILE__, __LINE__, n, __VA_ARGS__)
+#define AssertNoThrowId(n, ...)     yats_assert_throw  (__FILE__, __LINE__, n, [&](){ __VA_ARGS__; }, nothing())
+#define AssertThrowId(n, ...)       yats_assert_throw  (__FILE__, __LINE__, n, [&](){ __VA_ARGS__; }, anything())
+#define AssertThrowAsId(n, e,...)   yats_assert_throw  (__FILE__, __LINE__, n, [&](){ __VA_ARGS__; }, e)
 
-////////////////////////////////////////////// static assert:
+
+////////////////////////////////////////////// static yats_assert:
 
 #define StaticError(expr,msg)       YATS_XPASTE(YATS_STATIC_ERROR_, __COUNTER__) (expr,msg)
 
@@ -150,7 +151,7 @@ namespace yats
         std::vector<struct Group *> groups;
         std::set<std::string> group_names;
 
-        std::set<std::tuple<std::string, int, int>> yats_assert;
+        std::set<std::tuple<std::string, int, int>> yats_assert_set;
 
         static global&
         instance()
@@ -1009,9 +1010,9 @@ namespace yats
     ////////////////////////////////////////////// YATS assertions:
 
     template <typename T, typename P>
-    void assert(const char *file, int line, int id, const T &value, P pred)
+    void yats_assert(const char *file, int line, int id, const T &value, P pred)
     {
-        if (!global::instance().yats_assert.emplace(file, line, id).second)
+        if (!global::instance().yats_assert_set.emplace(file, line, id).second)
             return;
 
         global::instance().assert_total++;
@@ -1024,15 +1025,15 @@ namespace yats
     }
 
     static inline
-    void assert(const char *file, int line, int id, bool value)
+    void yats_assert(const char *file, int line, int id, bool value)
     {
-        return assert(file, line, id, value, is_true());
+        return yats_assert(file, line, id, value, is_true());
     }
 
     template <typename T, typename E>
-    void assert_throw(const char *file, int line, int id, T const & expr, E const &obj)
+    void yats_assert_throw(const char *file, int line, int id, T const & expr, E const &obj)
     {
-        if (!global::instance().yats_assert.emplace(file, line, id).second)
+        if (!global::instance().yats_assert_set.emplace(file, line, id).second)
             return;
 
         global::instance().assert_total++;

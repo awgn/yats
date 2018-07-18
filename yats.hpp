@@ -145,15 +145,17 @@ namespace yats
     {
         namespace
         {
-            const char * const CLEAR = "\E[2J";
-            const char * const EDOWN = "\E[J";
-            const char * const DOWN  = "\E[1B";
-            const char * const HOME  = "\E[H";
-            const char * const ELINE = "\E[K";
-            const char * const BOLD  = "\E[1m";
-            const char * const RESET = "\E[0m";
-            const char * const BLUE  = "\E[1;34m";
-            const char * const RED   = "\E[31m";
+            const char * const CLEAR    = "\E[2J";
+            const char * const EDOWN    = "\E[J";
+            const char * const DOWN     = "\E[1B";
+            const char * const HOME     = "\E[H";
+            const char * const ELINE    = "\E[K";
+            const char * const BOLD     = "\E[1m";
+            const char * const RESET    = "\E[0m";
+            const char * const BLUE     = "\E[1;34m";
+            const char * const RED      = "\E[31m";
+            const char * const MAGENTA  = "\E[35m";
+            const char * const GREEN    = "\E[32m";
         }
     }
 
@@ -827,8 +829,8 @@ namespace yats
                 t.second();
         }
 
-        std::cerr <<  std::endl << vt100::BOLD << (run != ok ? vt100::RED : "") << (run-ok) << vt100::RESET << " out of " << run  << " tests failed. "
-                  << global::instance().assert_ok << "/" << global::instance().assert_total << " assertions passed." << std::endl;
+        std::cerr << std::endl << vt100::BOLD << (run != ok ? vt100::MAGENTA : vt100::GREEN) << (run-ok) << " out of " << run  << " tests failed. "
+                  << global::instance().assert_ok << "/" << global::instance().assert_total << " assertions passed." << vt100::RESET << std::endl;
 
         return ok == run ? EXIT_SUCCESS : EXIT_FAILURE;
     }

@@ -79,7 +79,7 @@
         static_error() \
         {  \
             expr; \
-            std::cerr << "YATS: Static error failure: test " # expr ": " msg " is falsifiable." << std::endl; \
+            std::cerr << yats::vt100::BOLD << yats::vt100::RED << "YATS: Static error failure: test " # expr ": " msg " is falsifiable." << yats::vt100::RESET << std::endl; \
             _Exit(EXIT_FAILURE);\
         } \
     } maybe_error_ = static_error();
@@ -139,6 +139,24 @@
 
 namespace yats
 {
+    ////////////////////////////////////////////// vt100 colors:
+
+    namespace vt100
+    {
+        namespace
+        {
+            const char * const CLEAR = "\E[2J";
+            const char * const EDOWN = "\E[J";
+            const char * const DOWN  = "\E[1B";
+            const char * const HOME  = "\E[H";
+            const char * const ELINE = "\E[K";
+            const char * const BOLD  = "\E[1m";
+            const char * const RESET = "\E[0m";
+            const char * const BLUE  = "\E[1;34m";
+            const char * const RED   = "\E[31m";
+        }
+    }
+
     ////////////////////////////////////////////// global instance:
 
     struct global
@@ -544,14 +562,14 @@ namespace yats
                                   });
             return std::move(*this);
         }
-        
+
         template <typename Fun>
         Group &
         Main(std::string name, Fun f) &
         {
             check_unique_test_name(name);
             test_.emplace_back(std::move(name), [=](int, int argc, char *argv[]) {
-                                        f(argc, argv); 
+                                        f(argc, argv);
                                   });
             return *this;
         }
@@ -561,7 +579,7 @@ namespace yats
         {
             check_unique_test_name(name);
             test_.emplace_back(std::move(name), [=](int, int argc, char *argv[]) {
-                                        f(argc, argv); 
+                                        f(argc, argv);
                                   });
             return std::move(*this);
         }
@@ -683,7 +701,7 @@ namespace yats
             run_test.insert(*arg);
         }
 
-        std::cout << "YATS: verbose " << std::boolalpha << verbose << ", UNIX signals " << capture_signal << std::endl;
+        std::cout << vt100::BOLD << vt100::BLUE << "YATS: verbose " << std::boolalpha << verbose << ", UNIX signals " << capture_signal << vt100::RESET << std::endl;
 
         if (capture_signal) {
             for(int n = 0; n < 64; n++)
@@ -771,22 +789,22 @@ namespace yats
                     catch(yats_error &e)
                     {
                         err = true;
-                        auto msg = make_string(ctx->name_, " :: " , t.first, ": ", e.what());
-                        std::cerr << msg << std::endl; ferr << msg << std::endl;
+                        auto msg = make_string(ctx->name_, "::" , t.first, ": ", e.what());
+                        std::cerr << vt100::BOLD << vt100::RED << msg << vt100::RESET << std::endl; ferr << msg << std::endl;
                     }
                     catch(std::exception &e)
                     {
                         err = true; retry = false;
-                        auto msg = make_string(ctx->name_, " :: " , t.first, ":\n",
+                        auto msg = make_string(ctx->name_, "::" , t.first, ":\n",
                                                "    -> Unexpected exception: '", e.what(), "' error (retry interrupted).\n");
-                        std::cerr << msg; ferr << msg;
+                        std::cerr << vt100::BOLD << vt100::RED << msg << vt100::RESET; ferr << msg;
                     }
                     catch(...)
                     {
                         err = true; retry = false;
-                        auto msg = make_string(ctx->name_, " :: " , t.first, ":\n",
+                        auto msg = make_string(ctx->name_, "::" , t.first, ":\n",
                                                "    -> Unknown exception (retry interrupted).\n");
-                        std::cerr << msg; ferr << msg;
+                        std::cerr << vt100::BOLD << vt100::RED << msg << vt100::RESET; ferr << msg;
                     }
                 }
                 while(retry);
@@ -809,14 +827,14 @@ namespace yats
                 t.second();
         }
 
-        std::cerr <<  std::endl << (run-ok) << " out of " << run  << " tests failed. "
+        std::cerr <<  std::endl << vt100::BOLD << (run != ok ? vt100::RED : "") << (run-ok) << vt100::RESET << " out of " << run  << " tests failed. "
                   << global::instance().assert_ok << "/" << global::instance().assert_total << " assertions passed." << std::endl;
 
         return ok == run ? EXIT_SUCCESS : EXIT_FAILURE;
     }
     catch(std::exception &e)
     {
-        std::cerr << "YATS: unexpected " << e.what() << " exception!" << std::endl;
+        std::cerr << vt100::BOLD << vt100::RED << "YATS: unexpected " << e.what() << " exception!" << vt100::RESET << std::endl;
         return EXIT_FAILURE;
     }
 

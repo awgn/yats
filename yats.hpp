@@ -829,8 +829,14 @@ namespace yats
                 t.second();
         }
 
-        std::cerr << std::endl << vt100::BOLD << (run != ok ? vt100::MAGENTA : vt100::GREEN) << (run-ok) << " out of " << run  << " tests failed. "
-                  << global::instance().assert_ok << "/" << global::instance().assert_total << " assertions passed." << vt100::RESET << std::endl;
+        if (run == ok) {
+            std::cerr << std::endl << vt100::BOLD << vt100::GREEN << run << " tests succeeded. ";
+        }
+        else {
+            std::cerr << std::endl << vt100::BOLD << vt100::MAGENTA << (run-ok) << " out of " << run  << " tests failed. ";
+        }
+
+        std::cerr << global::instance().assert_ok << "/" << global::instance().assert_total << " assertions passed." << vt100::RESET << std::endl;
 
         return ok == run ? EXIT_SUCCESS : EXIT_FAILURE;
     }

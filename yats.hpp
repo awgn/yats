@@ -491,7 +491,7 @@ namespace yats
         Group &&
         Teardown(Fun f) &&
         {
-            setup_.emplace_back("teardown", [=](int argc, char *argv[]) {
+            teardown_.emplace_back("teardown", [=](int argc, char *argv[]) {
                                         f(argc, argv);
                                 });
             return std::move(*this);
@@ -500,7 +500,7 @@ namespace yats
         Group &
         Teardown(Fun f) &
         {
-            setup_.emplace_back("teardown", [=](int argc, char *argv[]) {
+            teardown_.emplace_back("teardown", [=](int argc, char *argv[]) {
                                         f(argc, argv);
                                 });
             return *this;
@@ -1029,7 +1029,7 @@ namespace yats
     }
 
     ////////////////////////////////////////////// YATS assertions:
-    
+
     template <typename T, typename P>
     void yats_assert(const char *file, int line, int id, const T &value, P pred)
     {
@@ -1050,7 +1050,7 @@ namespace yats
     {
         return yats_assert(file, line, id, value, is_true());
     }
-    
+
     void yats_assert_errno(const char *file, int line, int id, const char *msg, int value)
     {
         if (!global::instance().yats_assert_set.emplace(file, line, id).second)
@@ -1058,7 +1058,7 @@ namespace yats
 
         global::instance().assert_total++;
 
-        if (value < 0) { 
+        if (value < 0) {
             throw yats_error(file, line, make_error(file, line, "    -> ", msg, ": ret < 0 (got ", pretty(value), "): ", strerror(errno)));
         }
 

@@ -45,6 +45,7 @@
 #include <vector>
 #include <stdexcept>
 #include <csignal>
+#include <cstring>
 #include <chrono>
 #include <set>
 #include <map>
@@ -55,6 +56,8 @@
 
 
 ////////////////////////////////////////////// runtime yats_assert:
+
+#define AssertErrno(msg,...)        yats_assert_errno  (__FILE__, __LINE__, 0, msg, __VA_ARGS__)
 
 #define Assert(...)                 yats_assert        (__FILE__, __LINE__, 0, __VA_ARGS__)
 #define AssertNoThrow(...)          yats_assert_throw  (__FILE__, __LINE__, 0, [&](){ __VA_ARGS__; }, nothing())
@@ -1026,7 +1029,7 @@ namespace yats
     }
 
     ////////////////////////////////////////////// YATS assertions:
-
+    
     template <typename T, typename P>
     void yats_assert(const char *file, int line, int id, const T &value, P pred)
     {
@@ -1047,6 +1050,21 @@ namespace yats
     {
         return yats_assert(file, line, id, value, is_true());
     }
+    
+    void yats_assert_errno(const char *file, int line, int id, const char *msg, int value)
+    {
+        if (!global::instance().yats_assert_set.emplace(file, line, id).second)
+            return;
+
+        global::instance().assert_total++;
+
+        if (value < 0) { 
+            throw yats_error(file, line, make_error(file, line, "    -> ", msg, ": ret < 0 (got ", pretty(value), "): ", strerror(errno)));
+        }
+
+        global::instance().assert_ok++;
+    }
+
 
     template <typename T, typename E>
     void yats_assert_throw(const char *file, int line, int id, T const & expr, E const &obj)

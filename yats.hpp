@@ -810,7 +810,7 @@ namespace yats
                         std::cerr << vt100::BOLD << vt100::RED << msg << vt100::RESET; ferr << msg;
                     }
                 }
-                while(retry);
+                while(retry && !exit_immediately);
 
                 if (verbose)
                     std::cout << "[" << duration_to_string(std::chrono::system_clock::now() - start) << "]" << std::endl;

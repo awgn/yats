@@ -51,22 +51,22 @@ namespace group_context
 
     auto good = Group("good")
 
-        .Setup([]
+        .Setup([](int, char*[])
         {
             std::cout << "[*] Setup!" << std::endl;
         })
 
-        .Teardown([]
+        .Teardown([](int, char*[])
         {
             std::cout << "[*] Teardown!" << std::endl;
         })
 
-        .Prolog([]
+        .Prolog([](int, char*[])
         {
             std::cout << "+ Prolog!" << std::endl;
         })
 
-        .Epilog([]
+        .Epilog([](int, char*[])
         {
             std::cout << "- Epilog!" << std::endl;
         })

@@ -2,7 +2,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2011-15 Nicola Bonelli <nicola@pfq.io>
+ * Copyright (c) 2011-2020 Nicola Bonelli <nicola@pfq.io>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -469,14 +469,18 @@ namespace yats
         Group &&
         Setup(Fun f) &&
         {
-            setup_.emplace_back("setup", std::move(f));
+            setup_.emplace_back("setup", [=](int argc, char *argv[]) {
+                                        f(argc, argv);
+                                });
             return std::move(*this);
         }
         template <typename Fun>
         Group &
         Setup(Fun f) &
         {
-            setup_.emplace_back("setup", std::move(f));
+            setup_.emplace_back("setup", [=](int argc, char *argv[]) {
+                                        f(argc, argv);
+                                });
             return *this;
         }
 
@@ -484,14 +488,18 @@ namespace yats
         Group &&
         Teardown(Fun f) &&
         {
-            teardown_.emplace_back("teardown", std::move(f));
+            setup_.emplace_back("teardown", [=](int argc, char *argv[]) {
+                                        f(argc, argv);
+                                });
             return std::move(*this);
         }
         template <typename Fun>
         Group &
         Teardown(Fun f) &
         {
-            teardown_.emplace_back("teardown", std::move(f));
+            setup_.emplace_back("teardown", [=](int argc, char *argv[]) {
+                                        f(argc, argv);
+                                });
             return *this;
         }
 
@@ -499,14 +507,18 @@ namespace yats
         Group &&
         Prolog(Fun f) &&
         {
-            prolog_.emplace_back("prolog", std::move(f));
+            prolog_.emplace_back("prolog", [=](int argc, char *argv[]) {
+                                        f(argc, argv);
+                                 });
             return std::move(*this);
         }
         template <typename Fun>
         Group &
         Prolog(Fun f) &
         {
-            prolog_.emplace_back("prolog", std::move(f));
+            prolog_.emplace_back("prolog", [=](int argc, char *argv[]) {
+                                        f(argc, argv);
+                                 });
             return *this;
         }
 
@@ -514,14 +526,18 @@ namespace yats
         Group &&
         Epilog(Fun f) &&
         {
-            epilog_.emplace_back("epilog", std::move(f));
+            prolog_.emplace_back("epilog", [=](int argc, char *argv[]) {
+                                        f(argc, argv);
+                                 });
             return std::move(*this);
         }
         template <typename Fun>
         Group &
         Epilog(Fun f) &
         {
-            epilog_.emplace_back("epilog", std::move(f));
+            prolog_.emplace_back("epilog", [=](int argc, char *argv[]) {
+                                        f(argc, argv);
+                                });
             return *this;
         }
 
@@ -565,27 +581,6 @@ namespace yats
             return std::move(*this);
         }
 
-        template <typename Fun>
-        Group &
-        Main(std::string name, Fun f) &
-        {
-            check_unique_test_name(name);
-            test_.emplace_back(std::move(name), [=](int, int argc, char *argv[]) {
-                                        f(argc, argv);
-                                  });
-            return *this;
-        }
-        template <typename Fun>
-        Group &&
-        Main(std::string name, Fun f) &&
-        {
-            check_unique_test_name(name);
-            test_.emplace_back(std::move(name), [=](int, int argc, char *argv[]) {
-                                        f(argc, argv);
-                                  });
-            return std::move(*this);
-        }
-
         void check_unique_test_name(std::string const &name)
         {
             if (!test_names_.insert(name).second)
@@ -594,11 +589,11 @@ namespace yats
 
         std::string name_;
 
-        std::vector<task<void()>> setup_;
-        std::vector<task<void()>> teardown_;
-        std::vector<task<void()>> prolog_;
+        std::vector<task<void(int, char *[])>> setup_;
+        std::vector<task<void(int, char *[])>> teardown_;
+        std::vector<task<void(int, char *[])>> prolog_;
         std::vector<task<void(int, int, char *[])>> test_;
-        std::vector<task<void()>> epilog_;
+        std::vector<task<void(int, char *[])>> epilog_;
 
         std::set<std::string> test_names_;
     };
@@ -625,10 +620,10 @@ namespace yats
     static int run(int argc = 0, char *argv[] = nullptr)
     try
     {
-        bool exit_immediatly = false,
-             verbose         = false,
-             capture_signal  = false;
-        int  repeat_run      = 1000;
+        bool exit_immediately = false,
+             verbose          = false,
+             capture_signal   = false;
+        int  repeat_run       = 1000;
         int  skip = 1;
 
         std::set<std::string> run_ctx, run_test;
@@ -645,7 +640,7 @@ namespace yats
 
             if (strcmp(*arg, "-e") == 0 ||
                 strcmp(*arg, "--exit-immediately") == 0) {
-                exit_immediatly = true;
+                exit_immediately = true;
                 continue;
             }
 
@@ -744,7 +739,10 @@ namespace yats
         // iterate over groups:
         //
 
-        for(auto & ctx : global::instance().groups)
+        argc -= skip;
+        argv += skip;
+
+        for (auto &ctx : global::instance().groups)
         {
             if (!run_ctx.empty() && run_ctx.find(ctx->name_) == run_ctx.end())
                 continue;
@@ -755,7 +753,7 @@ namespace yats
             // run per-group setup tasks:
 
             for(auto & t : ctx->setup_)
-                t.second();
+                t.second(argc, argv);
 
             // run tasks...
             //
@@ -766,7 +764,7 @@ namespace yats
                     continue;
 
                 if (verbose)
-                    std::cout << "+ running '" << t.first << "'... " << std::flush;
+                    std::cout << "+ running '" << t.first << "'... " << std::endl;
 
                 run++;
 
@@ -775,7 +773,7 @@ namespace yats
                 // run prolog for this test...
 
                 for(auto & p : ctx->prolog_)
-                    p.second();
+                    p.second(argc, argv);
 
                 bool retry = true,
                      err   = false;
@@ -783,7 +781,7 @@ namespace yats
                 {
                     try
                     {
-                        t.second(repeat_run, argc - skip, argv + skip);
+                        t.second(repeat_run, argc, argv);
                         retry = false;
                         if (!err)
                             ok++;
@@ -817,26 +815,20 @@ namespace yats
                 // run epilog for this test...
 
                 for(auto & p : ctx->epilog_)
-                    p.second();
+                    p.second(argc, argv);
 
-                if (err && exit_immediatly)
+                if (err && exit_immediately)
                     _Exit(1);
             }
 
             // run per-group teardown tasks:
 
             for(auto & t : ctx->teardown_)
-                t.second();
+                t.second(argc, argv);
         }
 
-        if (run == ok) {
-            std::cerr << std::endl << vt100::BOLD << vt100::GREEN << run << " tests succeeded. ";
-        }
-        else {
-            std::cerr << std::endl << vt100::BOLD << vt100::MAGENTA << (run-ok) << " out of " << run  << " tests failed. ";
-        }
-
-        std::cerr << global::instance().assert_ok << "/" << global::instance().assert_total << " assertions passed." << vt100::RESET << std::endl;
+        std::cerr << std::endl << vt100::BOLD << (run != ok ? vt100::MAGENTA : vt100::GREEN) << (run-ok) << " out of " << run  << " tests failed. "
+                  << global::instance().assert_ok << "/" << global::instance().assert_total << " assertions passed." << vt100::RESET << std::endl;
 
         return ok == run ? EXIT_SUCCESS : EXIT_FAILURE;
     }

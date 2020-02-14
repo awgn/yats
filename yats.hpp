@@ -663,6 +663,7 @@ namespace yats
                 strcmp(*arg, "--group") == 0) {
                 if (++arg == (argv+argc))
                     throw std::runtime_error("YATS: number of repetition missing");
+                ++skip;
                 run_ctx.insert(*arg);
                 continue;
             }

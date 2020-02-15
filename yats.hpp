@@ -529,7 +529,7 @@ namespace yats
         Group &&
         Epilog(Fun f) &&
         {
-            prolog_.emplace_back("epilog", [=](int argc, char *argv[]) {
+            epilog_.emplace_back("epilog", [=](int argc, char *argv[]) {
                                         f(argc, argv);
                                  });
             return std::move(*this);
@@ -538,7 +538,7 @@ namespace yats
         Group &
         Epilog(Fun f) &
         {
-            prolog_.emplace_back("epilog", [=](int argc, char *argv[]) {
+            epilog_.emplace_back("epilog", [=](int argc, char *argv[]) {
                                         f(argc, argv);
                                 });
             return *this;
